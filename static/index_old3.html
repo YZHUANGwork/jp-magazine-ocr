@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Japanese Text Extractor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0e0f11;
+  --surface:  #16181c;
+  --panel:    #1c1e24;
+  --border:   #2a2d35;
+  --accent:   #e8c547;
+  --accent2:  #4fc3f7;
+  --danger:   #f06292;
+  --text:     #e8e9eb;
+  --muted:    #6b7280;
+  --radius:   8px;
+  --font-ui:  'Syne', sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 340px;
+  height: 100vh;
+}
+
+/* ── header ── */
+header {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 20px;
+}
+header h1 {
+  font-size: 15px; font-weight: 800; letter-spacing: .08em;
+  color: var(--accent); text-transform: uppercase;
+}
+header .jp { font-size: 11px; color: var(--muted); margin-left: 2px; }
+
+.header-settings {
+  margin-left: auto; display: flex; align-items: center; gap: 12px;
+}
+.header-settings label {
+  font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+}
+.header-settings select,
+.header-settings input {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px; padding: 5px 9px;
+  border-radius: 5px; outline: none;
+}
+.header-settings select:focus,
+.header-settings input:focus  { border-color: var(--accent2); }
+.header-settings input { width: 220px; letter-spacing: .04em; }
+
+/* ── left canvas panel ── */
+.canvas-panel {
+  background: var(--bg); display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); overflow: hidden;
+}
+
+/* toolbar */
+.toolbar {
+  height: 48px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+}
+
+/* close-image tab */
+.btn-close-img {
+  display: none;
+  align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 5px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-close-img.visible { display: flex; }
+.btn-close-img:hover   { color: var(--danger); border-color: var(--danger); }
+.btn-close-img svg     { width: 12px; height: 12px; flex-shrink: 0; }
+
+.toolbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+.toolbar-hint {
+  font-size: 11px; color: var(--muted); letter-spacing: .04em;
+  display: flex; align-items: center; gap: 6px;
+}
+.toolbar-hint svg { width: 13px; height: 13px; opacity: .5; flex-shrink: 0; }
+
+/* zoom level badge */
+.zoom-badge {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  min-width: 40px; text-align: right; display: none;
+}
+.zoom-badge.visible { display: block; }
+
+.sel-info {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  opacity: 0; transition: opacity .2s; white-space: nowrap;
+}
+.sel-info.visible { opacity: 1; }
+
+.btn-run {
+  margin-left: auto; padding: 6px 16px; border-radius: 6px;
+  border: 1px solid var(--accent); background: var(--accent); color: #0e0f11;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .05em; cursor: pointer; transition: all .15s;
+}
+.btn-run:hover    { background: #f0d055; border-color: #f0d055; }
+.btn-run:disabled { opacity: .4; cursor: default; }
+
+.btn-clear {
+  padding: 5px 11px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-clear:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ── canvas area ── */
+.canvas-area {
+  flex: 1; overflow: auto; position: relative;
+  /* centre content when smaller than viewport */
+  display: flex; align-items: flex-start; justify-content: flex-start;
+}
+
+/* drop zone */
+.drop-zone {
+  position: absolute; inset: 20px; border: 2px dashed var(--border);
+  border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: border-color .2s, background .2s;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent2); background: rgba(79,195,247,.04);
+}
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-zone .dz-icon { font-size: 2.4rem; opacity: .4; }
+.drop-zone p { font-size: 13px; color: var(--muted); }
+.drop-zone strong { color: var(--accent2); }
+.drop-zone.hidden { display: none; }
+
+/* canvas stack — margin gives breathing room when zoomed */
+#canvas-wrap {
+  display: none; position: relative; line-height: 0;
+  margin: 20px; flex-shrink: 0;
+}
+#canvas-wrap.visible { display: inline-block; }
+
+/* bg-canvas: stored at NATIVE resolution, CSS-scaled to current zoom size */
+#bg-canvas {
+  display: block; border-radius: var(--radius); image-rendering: auto;
+}
+/* draw-canvas: overlay at DISPLAY size (zoom-aware, set by JS) */
+#draw-canvas {
+  position: absolute; top: 0; left: 0;
+  border-radius: var(--radius); cursor: crosshair;
+}
+
+/* ── right output panel ── */
+.output-panel {
+  background: var(--surface); display: flex; flex-direction: column; overflow: hidden;
+}
+.output-header {
+  height: 48px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px; flex-shrink: 0;
+}
+.output-header span {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.region-badge {
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--accent); color: #0e0f11;
+  padding: 2px 7px; border-radius: 20px; font-weight: 600; display: none;
+}
+.region-badge.visible { display: inline-block; }
+
+.btn-copy {
+  margin-left: auto; padding: 5px 11px; border-radius: 5px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.btn-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+.output-body { flex: 1; overflow-y: auto; padding: 16px; }
+#output-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--muted); white-space: pre-wrap; word-break: break-all;
+}
+#output-text.has-content { color: var(--text); }
+
+/* spinner */
+.spinner-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(14,15,17,.7); backdrop-filter: blur(3px);
+  z-index: 100; align-items: center; justify-content: center;
+  flex-direction: column; gap: 14px;
+}
+.spinner-overlay.visible { display: flex; }
+.spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-overlay p { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 20px; border-radius: 8px; font-size: 13px;
+  font-family: var(--font-mono); opacity: 0;
+  transition: opacity .25s, transform .25s; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── header ── -->
+  <header>
+    <h1>JP Extract <span class="jp">日本語</span></h1>
+    <div class="header-settings">
+      <label>Provider</label>
+      <select id="provider">
+        <option value="gpt">GPT-4o</option>
+        <option value="gemini">Gemini 2.0 Flash</option>
+      </select>
+      <label>API Key</label>
+      <input type="password" id="api-key" placeholder="Paste key here…">
+    </div>
+  </header>
+
+  <!-- ── left: canvas panel ── -->
+  <div class="canvas-panel">
+
+    <div class="toolbar">
+
+      <!-- close-image tab (hidden until image loaded) -->
+      <button class="btn-close-img" id="btn-close-img" onclick="closeImage()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+        </svg>
+        Close image
+      </button>
+
+      <div class="toolbar-sep" id="sep-close" style="display:none"></div>
+
+      <div class="toolbar-hint">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke-dasharray="3 2"/>
+        </svg>
+        Drag to select · Scroll to zoom
+      </div>
+
+      <span class="zoom-badge" id="zoom-badge">100%</span>
+      <span class="sel-info"   id="sel-info"></span>
+
+      <button class="btn-clear" onclick="clearSelection()">Clear</button>
+      <button class="btn-run"   onclick="runExtract()">Identify JP ›</button>
+    </div>
+
+    <div class="canvas-area" id="canvas-area">
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="dz-icon">🖼</div>
+        <p><strong>Click or drag</strong> an image here</p>
+        <p>JPG · PNG · WEBP</p>
+      </div>
+
+      <div id="canvas-wrap">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── right: output panel ── -->
+  <div class="output-panel">
+    <div class="output-header">
+      <span>Extracted Text</span>
+      <span class="region-badge" id="region-badge"></span>
+      <button class="btn-copy" onclick="copyText()">Copy</button>
+    </div>
+    <div class="output-body">
+      <pre id="output-text">① Upload an image
+② Drag on the image to select a region
+   Scroll to zoom in / out first if needed
+   (leave empty to scan the whole image)
+③ Click  Identify JP ›</pre>
+    </div>
+  </div>
+</div>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <p>Identifying Japanese text…</p>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── refs ──────────────────────────────────────────────────────────────────────
+const bgCanvas   = document.getElementById('bg-canvas');
+const drawCanvas = document.getElementById('draw-canvas');
+const bgCtx      = bgCanvas.getContext('2d');
+const drawCtx    = drawCanvas.getContext('2d');
+const wrap       = document.getElementById('canvas-wrap');
+const dropZone   = document.getElementById('drop-zone');
+const selInfoEl  = document.getElementById('sel-info');
+const zoomBadge  = document.getElementById('zoom-badge');
+const canvasArea = document.getElementById('canvas-area');
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let originalImage = null;   // full-res HTMLImageElement
+let originalFile  = null;   // raw File for whole-image sends
+
+/*
+  Zoom model
+  ----------
+  We keep ONE canonical scale:  zoomScale = (displayed CSS px) / (original px)
+
+  At load:  zoomScale = fitScale  (image fills the viewport, ≤ 1)
+  On wheel: zoomScale *= factor,  clamped to [fitScale*0.25 … 8]
+
+  The bg-canvas pixel buffer is always NATIVE resolution.
+  Its CSS width/height = naturalWidth * zoomScale.
+
+  The draw-canvas pixel buffer = CSS size (1:1 device-independent pixels).
+  All selection coords are stored in IMAGE space (original pixels).
+*/
+let fitScale  = 1;    // scale at which image fits the panel
+let zoomScale = 1;    // current zoom (image px → CSS px)
+
+// Selection stored in ORIGINAL image coordinates (survives zoom changes)
+let selImgRect = null;   // {x,y,w,h} in original px, or null
+
+let selStart  = null;    // mousedown pos in display px
+let selecting = false;
+
+// ── file input / drag-drop ────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  originalFile = file;
+  const url    = URL.createObjectURL(file);
+  const img    = new Image();
+  img.onload = () => {
+    originalImage = img;
+    selImgRect    = null;
+
+    const maxW = canvasArea.clientWidth  - 40;
+    const maxH = canvasArea.clientHeight - 40;
+
+    fitScale  = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    zoomScale = fitScale;
+
+    // bg-canvas: native resolution buffer, CSS-scaled
+    bgCanvas.width  = img.naturalWidth;
+    bgCanvas.height = img.naturalHeight;
+    bgCtx.drawImage(img, 0, 0);
+
+    applyZoom();
+
+    dropZone.classList.add('hidden');
+    wrap.classList.add('visible');
+    document.getElementById('btn-close-img').classList.add('visible');
+    document.getElementById('sep-close').style.display = '';
+  };
+  img.src = url;
+}
+
+// ── close image ───────────────────────────────────────────────────────────────
+function closeImage() {
+  originalImage = null;
+  originalFile  = null;
+  selImgRect    = null;
+  selStart      = null;
+  selecting     = false;
+
+  // reset canvases
+  bgCanvas.width  = bgCanvas.height  = 1;
+  drawCanvas.width = drawCanvas.height = 1;
+  bgCanvas.style.width  = bgCanvas.style.height  = '';
+  drawCanvas.style.width = drawCanvas.style.height = '';
+
+  wrap.classList.remove('visible');
+  dropZone.classList.remove('hidden');
+  document.getElementById('btn-close-img').classList.remove('visible');
+  document.getElementById('sep-close').style.display = 'none';
+
+  zoomBadge.classList.remove('visible');
+  updateSelInfo();
+
+  // reset file input so same file can be re-selected
+  const fi = document.getElementById('file-input');
+  fi.value = '';
+}
+
+// ── zoom helpers ──────────────────────────────────────────────────────────────
+const ZOOM_MIN_MULT = 0.25;   // can zoom out to 25 % of fitScale
+const ZOOM_MAX      = 8;      // absolute max ×8 original size
+const ZOOM_FACTOR   = 1.12;   // per wheel tick
+
+function applyZoom() {
+  if (!originalImage) return;
+
+  const dispW = Math.round(originalImage.naturalWidth  * zoomScale);
+  const dispH = Math.round(originalImage.naturalHeight * zoomScale);
+
+  // resize bg-canvas CSS size (pixel buffer unchanged → quality preserved)
+  bgCanvas.style.width  = dispW + 'px';
+  bgCanvas.style.height = dispH + 'px';
+
+  // resize draw-canvas pixel buffer to match display size
+  drawCanvas.width  = dispW;
+  drawCanvas.height = dispH;
+  drawCanvas.style.width  = dispW + 'px';
+  drawCanvas.style.height = dispH + 'px';
+
+  // update zoom badge
+  const pct = Math.round(zoomScale / fitScale * 100);  // relative to fit-to-screen = 100 %
+  zoomBadge.textContent = pct + '%';
+  zoomBadge.classList.add('visible');
+
+  // redraw any existing selection in new coordinate space
+  redrawSelection();
+}
+
+// scroll-to-zoom — zoom centred on cursor position inside the canvas area
+canvasArea.addEventListener('wheel', e => {
+  if (!originalImage) return;
+  e.preventDefault();
+
+  const delta  = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+  const newZ   = Math.min(ZOOM_MAX, Math.max(fitScale * ZOOM_MIN_MULT, zoomScale * delta));
+  if (newZ === zoomScale) return;
+
+  // keep the point under the cursor in the same visual position after zoom
+  const rect    = canvasArea.getBoundingClientRect();
+  const mouseX  = e.clientX - rect.left + canvasArea.scrollLeft - 20;  // 20 = margin
+  const mouseY  = e.clientY - rect.top  + canvasArea.scrollTop  - 20;
+
+  const ratio   = newZ / zoomScale;
+  zoomScale     = newZ;
+  applyZoom();
+
+  // adjust scroll so the pixel under cursor stays put
+  canvasArea.scrollLeft = mouseX * ratio - (e.clientX - rect.left) + 20;
+  canvasArea.scrollTop  = mouseY * ratio - (e.clientY - rect.top)  + 20;
+
+}, { passive: false });
+
+// ── coordinate helpers ────────────────────────────────────────────────────────
+
+// display px (inside draw-canvas) → original image px
+function displayToImg(dx, dy) {
+  return { x: dx / zoomScale, y: dy / zoomScale };
+}
+
+// original image px → display px
+function imgToDisplay(ix, iy) {
+  return { x: ix * zoomScale, y: iy * zoomScale };
+}
+
+// mouse event → display px relative to draw-canvas top-left
+function getPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  return {
+    x: src.clientX - rect.left,
+    y: src.clientY - rect.top
+  };
+}
+
+// ── pointer events ────────────────────────────────────────────────────────────
+drawCanvas.addEventListener('mousedown',  onDown);
+drawCanvas.addEventListener('mousemove',  onMove);
+drawCanvas.addEventListener('mouseup',    onUp);
+drawCanvas.addEventListener('mouseleave', onLeave);
+drawCanvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, { passive: false });
+drawCanvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
+drawCanvas.addEventListener('touchend',   onUp);
+
+function onDown(e) {
+  if (!originalImage) return;
+  selecting  = true;
+  selStart   = getPos(e);
+  selImgRect = null;
+  updateSelInfo();
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+}
+
+function onMove(e) {
+  if (!selecting || !selStart) return;
+  drawLiveSelection(getPos(e));
+}
+
+function onUp(e) {
+  if (!selecting || !selStart) return;
+  selecting = false;
+
+  const endP = e.changedTouches
+    ? (() => {
+        const r = drawCanvas.getBoundingClientRect();
+        const t = e.changedTouches[0];
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
+      })()
+    : getPos(e);
+
+  const dRx = Math.min(endP.x, selStart.x);
+  const dRy = Math.min(endP.y, selStart.y);
+  const dRw = Math.abs(endP.x - selStart.x);
+  const dRh = Math.abs(endP.y - selStart.y);
+
+  if (dRw > 4 && dRh > 4) {
+    // convert to image coords and store
+    const tl = displayToImg(dRx, dRy);
+    const br = displayToImg(dRx + dRw, dRy + dRh);
+    selImgRect = {
+      x: Math.max(0, tl.x),
+      y: Math.max(0, tl.y),
+      w: Math.min(br.x, originalImage.naturalWidth)  - Math.max(0, tl.x),
+      h: Math.min(br.y, originalImage.naturalHeight) - Math.max(0, tl.y),
+    };
+    redrawSelection();
+  } else {
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    selImgRect = null;
+  }
+  selStart = null;
+  updateSelInfo();
+}
+
+function onLeave() {
+  if (selecting) { selecting = false; selStart = null; }
+}
+
+// draw live selection box while dragging (display coords)
+function drawLiveSelection(p) {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  const rx = Math.min(p.x, selStart.x);
+  const ry = Math.min(p.y, selStart.y);
+  const rw = Math.abs(p.x - selStart.x);
+  const rh = Math.abs(p.y - selStart.y);
+  paintOverlay(rx, ry, rw, rh, false);
+}
+
+// redraw selection from stored image coords (called after zoom change)
+function redrawSelection() {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  if (!selImgRect) return;
+  const tl = imgToDisplay(selImgRect.x, selImgRect.y);
+  const br = imgToDisplay(selImgRect.x + selImgRect.w, selImgRect.y + selImgRect.h);
+  paintOverlay(tl.x, tl.y, br.x - tl.x, br.y - tl.y, true);
+}
+
+function paintOverlay(rx, ry, rw, rh, confirmed) {
+  // dim outside
+  drawCtx.fillStyle = 'rgba(0,0,0,0.45)';
+  drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+  drawCtx.clearRect(rx, ry, rw, rh);
+
+  // border
+  drawCtx.strokeStyle = '#e8c547';
+  drawCtx.lineWidth   = 1.5;
+  drawCtx.setLineDash(confirmed ? [] : [6, 3]);
+  drawCtx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+  drawCtx.setLineDash([]);
+
+  // corner handles
+  const hs = 7;
+  [[rx, ry], [rx+rw, ry], [rx, ry+rh], [rx+rw, ry+rh]].forEach(([cx, cy]) => {
+    drawCtx.fillStyle = '#e8c547';
+    drawCtx.fillRect(cx - hs/2, cy - hs/2, hs, hs);
+  });
+
+  // size label (always in original image px)
+  const imgW = selImgRect ? Math.round(selImgRect.w) : Math.round(rw / zoomScale);
+  const imgH = selImgRect ? Math.round(selImgRect.h) : Math.round(rh / zoomScale);
+  drawCtx.font      = 'bold 11px IBM Plex Mono, monospace';
+  drawCtx.fillStyle = '#e8c547';
+  drawCtx.fillText(`${imgW} × ${imgH}`, rx + 6, ry > 18 ? ry - 5 : ry + rh + 14);
+}
+
+function updateSelInfo() {
+  if (selImgRect) {
+    selInfoEl.textContent = `${Math.round(selImgRect.w)} × ${Math.round(selImgRect.h)} px`;
+    selInfoEl.classList.add('visible');
+  } else {
+    selInfoEl.textContent = '';
+    selInfoEl.classList.remove('visible');
+  }
+}
+
+function clearSelection() {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  selImgRect = null;
+  updateSelInfo();
+}
+
+// ── crop original image to selection ─────────────────────────────────────────
+function getCroppedBlob(callback) {
+  if (!selImgRect || !originalImage) { callback(null); return; }
+
+  const cx = Math.max(0, Math.round(selImgRect.x));
+  const cy = Math.max(0, Math.round(selImgRect.y));
+  const cw = Math.min(Math.round(selImgRect.w), originalImage.naturalWidth  - cx);
+  const ch = Math.min(Math.round(selImgRect.h), originalImage.naturalHeight - cy);
+
+  if (cw < 4 || ch < 4) { callback(null); return; }
+
+  const crop = document.createElement('canvas');
+  crop.width  = cw;
+  crop.height = ch;
+  crop.getContext('2d').drawImage(originalImage, cx, cy, cw, ch, 0, 0, cw, ch);
+  crop.toBlob(blob => callback(blob), 'image/png');
+}
+
+// ── extraction ────────────────────────────────────────────────────────────────
+async function runExtract() {
+  if (!originalImage) { showToast('Upload an image first.'); return; }
+
+  const apiKey   = document.getElementById('api-key').value.trim();
+  const provider = document.getElementById('provider').value;
+  if (!apiKey) { showToast('Please enter your API key in the header.'); return; }
+
+  const sendBlob = blob => {
+    if (!blob) { showToast('Selection too small — try again.'); return; }
+    const fd = new FormData();
+    fd.append('image', blob, 'region.png');
+    fd.append('provider', provider);
+    fd.append('api_key',  apiKey);
+
+    document.getElementById('spinner').classList.add('visible');
+    fetch('/extract', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          setOutput('⚠ Error: ' + data.error, 0);
+          showToast('Error — see output panel.');
+        } else {
+          const count = (data.regions || []).length;
+          setOutput(data.text || '— No Japanese words identified —', count);
+        }
+      })
+      .catch(() => setOutput(
+        '⚠ Cannot reach server.\n\nMake sure you have started it:\n  python server.py\n\nThen open http://localhost:5000', 0
+      ))
+      .finally(() => document.getElementById('spinner').classList.remove('visible'));
+  };
+
+  if (!selImgRect) {
+    sendBlob(originalFile);  // whole image, zero re-encoding
+  } else {
+    getCroppedBlob(sendBlob);
+  }
+}
+
+function setOutput(text, regionCount) {
+  const el    = document.getElementById('output-text');
+  const badge = document.getElementById('region-badge');
+  el.textContent = text;
+  el.classList.toggle('has-content', regionCount > 0);
+  badge.textContent = regionCount > 0
+    ? regionCount + (regionCount === 1 ? ' region' : ' regions') : '';
+  badge.classList.toggle('visible', regionCount > 0);
+}
+
+function copyText() {
+  navigator.clipboard.writeText(document.getElementById('output-text').textContent)
+    .then(() => showToast('Copied to clipboard!'));
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>

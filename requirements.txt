@@ -1,0 +1,8 @@
+# Manga Translator — Python requirements
+# Install: pip install -r requirements.txt
+
+Pillow>=10.0.0
+opencv-python>=4.8.0
+requests>=2.31.0
+reportlab>=4.0.0
+img2pdf>=0.4.0

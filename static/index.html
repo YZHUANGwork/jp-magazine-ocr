@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Japanese Text Extractor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0e0f11;
+  --surface:  #16181c;
+  --panel:    #1c1e24;
+  --border:   #2a2d35;
+  --accent:   #e8c547;
+  --accent2:  #4fc3f7;
+  --danger:   #f06292;
+  --text:     #e8e9eb;
+  --muted:    #6b7280;
+  --radius:   8px;
+  --font-ui:  'Syne', sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+}
+
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14px; overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 340px;
+  height: 100vh;
+}
+
+/* ── header ── */
+header {
+  grid-column: 1 / -1; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 20px;
+}
+header h1 { font-size: 15px; font-weight: 800; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+header .jp { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.header-settings { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.header-settings label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.header-settings select,
+.header-settings input {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px; padding: 5px 9px; border-radius: 5px; outline: none;
+}
+.header-settings select:focus,
+.header-settings input:focus { border-color: var(--accent2); }
+.header-settings input { width: 220px; letter-spacing: .04em; }
+
+/* ── left panel ── */
+.canvas-panel {
+  background: var(--bg); display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); overflow: hidden;
+}
+
+.toolbar {
+  height: 48px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+}
+
+.btn-close-img {
+  display: none; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: 5px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-close-img.visible { display: flex; }
+.btn-close-img:hover   { color: var(--danger); border-color: var(--danger); }
+.btn-close-img svg     { width: 12px; height: 12px; flex-shrink: 0; }
+
+.toolbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+.toolbar-hint {
+  font-size: 11px; color: var(--muted); letter-spacing: .04em;
+  display: flex; align-items: center; gap: 6px;
+}
+.toolbar-hint svg { width: 13px; height: 13px; opacity: .5; flex-shrink: 0; }
+
+.zoom-badge {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  min-width: 40px; text-align: right; display: none;
+}
+.zoom-badge.visible { display: block; }
+
+.sel-info {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  opacity: 0; transition: opacity .2s; white-space: nowrap;
+}
+.sel-info.visible { opacity: 1; }
+
+.btn-run {
+  padding: 6px 13px; border-radius: 6px;
+  border: 1px solid var(--accent); background: var(--accent); color: #0e0f11;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-run:hover    { background: #f0d055; border-color: #f0d055; }
+.btn-run:disabled { opacity: .4; cursor: default; }
+
+/* translate buttons */
+.btn-translate {
+  padding: 6px 13px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-translate:hover {
+  color: var(--accent2); border-color: var(--accent2);
+  background: rgba(79,195,247,.06);
+}
+.btn-translate:disabled { opacity: .4; cursor: default; }
+
+/* action row below toolbar */
+.action-row {
+  height: 40px; background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
+}
+.action-row-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+
+/* rotation row */
+.rotation-row {
+  height: 38px; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: none; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+}
+.rotation-row.visible { display: flex; }
+.rotation-row label {
+  font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.rotation-row input[type=range] {
+  flex: 1; accent-color: var(--accent); cursor: pointer; height: 3px;
+  min-width: 60px;
+}
+.rotation-deg {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  min-width: 36px; text-align: right; flex-shrink: 0;
+}
+.btn-rot {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font-mono);
+  font-size: 11px; cursor: pointer; transition: all .12s; flex-shrink: 0; line-height: 1;
+}
+.btn-rot:hover { color: var(--accent); border-color: var(--accent); }
+.btn-rot-reset {
+  font-size: 10px; color: var(--muted);
+}
+
+.btn-clear {
+  padding: 5px 11px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-clear:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ── canvas area ── */
+.canvas-area {
+  flex: 1; overflow: auto; position: relative;
+  display: flex; align-items: flex-start; justify-content: flex-start;
+}
+
+.drop-zone {
+  position: absolute; inset: 20px; border: 2px dashed var(--border);
+  border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: border-color .2s, background .2s;
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent2); background: rgba(79,195,247,.04); }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-zone .dz-icon { font-size: 2.4rem; opacity: .4; }
+.drop-zone p { font-size: 13px; color: var(--muted); }
+.drop-zone strong { color: var(--accent2); }
+.drop-zone.hidden { display: none; }
+
+#canvas-wrap {
+  display: none; position: relative; line-height: 0; margin: 20px; flex-shrink: 0;
+}
+#canvas-wrap.visible { display: inline-block; }
+
+#bg-canvas { display: block; border-radius: var(--radius); image-rendering: auto; }
+#draw-canvas { position: absolute; top: 0; left: 0; border-radius: var(--radius); cursor: crosshair; }
+
+/* ── right output panel ── */
+.output-panel { background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+.output-header {
+  height: 48px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px; flex-shrink: 0;
+}
+.output-header span { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.region-badge {
+  font-family: var(--font-mono); font-size: 10px; background: var(--accent);
+  color: #0e0f11; padding: 2px 7px; border-radius: 20px; font-weight: 600; display: none;
+}
+.region-badge.visible { display: inline-block; }
+.btn-copy {
+  margin-left: auto; padding: 5px 11px; border-radius: 5px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+.output-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+.output-block {
+  margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; transition: background .12s;
+}
+.output-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.output-block:hover { background: rgba(255,255,255,.02); }
+.output-block.selected {
+  background: rgba(232,197,71,.07);
+  outline: 1px solid rgba(232,197,71,.3);
+  outline-offset: 2px;
+}
+.output-block-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.box-num {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  background: var(--accent); color: #0e0f11;
+  width: 20px; height: 20px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.orient-tag {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: var(--accent2); background: rgba(79,195,247,.12);
+  border: 1px solid rgba(79,195,247,.25);
+  padding: 1px 6px; border-radius: 4px; letter-spacing: .05em;
+}
+/* close button on output block */
+.output-block-close {
+  margin-left: auto; width: 18px; height: 18px; border-radius: 4px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .12s; padding: 0;
+}
+.output-block-close:hover { color: var(--danger); border-color: var(--danger); background: rgba(240,98,146,.1); }
+.output-block-close svg { width: 10px; height: 10px; }
+.output-block-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--text); white-space: pre-wrap; word-break: break-all; padding-left: 28px;
+}
+/* translation rows */
+.translation-row {
+  padding-left: 28px; margin-top: 6px;
+}
+.translation-label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.translation-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--accent2); white-space: pre-wrap; word-break: break-all;
+}
+.translation-pending {
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  font-style: italic;
+}
+#output-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--muted); white-space: pre-wrap; word-break: break-all;
+}
+
+/* spinner */
+.spinner-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(14,15,17,.7); backdrop-filter: blur(3px);
+  z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+}
+.spinner-overlay.visible { display: flex; }
+.spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-overlay p { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+.spinner-progress { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-top: -4px; }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 20px; border-radius: 8px; font-size: 13px;
+  font-family: var(--font-mono); opacity: 0;
+  transition: opacity .25s, transform .25s; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo" style="font-size: 1.5rem; line-height: 1.2;">
+  AI translation tool for Japanese anime magazines
+  <span style="font-weight: 400; font-size: 1.5rem; opacity: 0.8; display: block; margin-top: 2px;">
+    AI框选识图翻译，啃日杂切页公式书生肉 <span class="jp" style="opacity: 0.6;">日本語</span>
+  </span>
+</div>
+    <div class="header-settings">
+      <label>Provider</label>
+      <select id="provider">
+        <option value="gpt">GPT-4o</option>
+        <option value="gemini">Gemini 2.0 Flash</option>
+      </select>
+      <label>API Key</label>
+      <input type="password" id="api-key" placeholder="Paste key here…">
+    </div>
+  </header>
+
+  <div class="canvas-panel">
+    <div class="toolbar">
+      <button class="btn-close-img" id="btn-close-img" onclick="closeImage()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+        </svg>
+        Close image
+      </button>
+      <div class="toolbar-sep" id="sep-close" style="display:none"></div>
+
+      <div class="toolbar-hint">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke-dasharray="3 2"/>
+        </svg>
+        Drag to add boxes · Scroll to zoom · Ctrl+Z to undo
+      </div>
+
+      <span class="zoom-badge" id="zoom-badge"></span>
+      <span class="sel-info"   id="sel-info"></span>
+
+      <button class="btn-clear" onclick="clearAllSelections()">Clear all</button>
+    </div>
+
+    <!-- action buttons row -->
+    <div class="action-row">
+      <button class="btn-run"       onclick="runAction(null)">Identify JP</button>
+      <div class="action-row-sep"></div>
+      <button class="btn-translate" onclick="runAction('zh')">+ 中文</button>
+      <button class="btn-translate" onclick="runAction('en')">+ English</button>
+      <button class="btn-translate" onclick="runAction('zh+en')">+ 中文 &amp; English</button>
+    </div>
+
+    <!-- rotation row (shown once image loaded) -->
+    <div class="rotation-row" id="rotation-row">
+      <label>Rotate</label>
+      <input type="range" id="rot-slider" min="-180" max="180" step="0.5" value="0"
+             oninput="setRotation(parseFloat(this.value))">
+      <span class="rotation-deg" id="rot-deg">0°</span>
+      <button class="btn-rot btn-rot-reset" onclick="setRotation(0)" title="Reset rotation">Reset</button>
+    </div>
+
+    <div class="canvas-area" id="canvas-area">
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="dz-icon">🖼</div>
+        <p><strong>Click or drag</strong> an image here</p>
+        <p>JPG · PNG · WEBP</p>
+      </div>
+      <div id="canvas-wrap">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+      </div>
+    </div>
+  </div><!-- end canvas-panel -->
+
+  <div class="output-panel">
+    <div class="output-header">
+      <span>Extracted Text</span>
+      <span class="region-badge" id="region-badge"></span>
+      <button class="btn-copy" onclick="copyText()">Copy</button>
+    </div>
+    <div class="output-body" id="output-body">
+      <pre id="output-text">① Upload an image
+② Drag to draw selection boxes
+   Ctrl+Z undoes the last box
+   Leave empty to scan the whole image
+③ Scroll to zoom in / out as needed
+④ Click  Identify JP ›</pre>
+    </div>
+  </div>
+</div>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <p id="spinner-label">Processing…</p>
+  <div class="spinner-progress" id="spinner-progress"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── refs ──────────────────────────────────────────────────────────────────────
+const bgCanvas   = document.getElementById('bg-canvas');
+const drawCanvas = document.getElementById('draw-canvas');
+const bgCtx      = bgCanvas.getContext('2d');
+const drawCtx    = drawCanvas.getContext('2d');
+const wrap       = document.getElementById('canvas-wrap');
+const dropZone   = document.getElementById('drop-zone');
+const selInfoEl  = document.getElementById('sel-info');
+const zoomBadge  = document.getElementById('zoom-badge');
+const canvasArea = document.getElementById('canvas-area');
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let originalImage = null;
+let originalFile  = null;
+let fitScale  = 1;
+let zoomScale = 1;
+
+/*
+  Each selection:
+  {
+    x, y, w, h   — in original image pixels
+    result: null | { regions: [...], error: string|null }
+             null  = not yet processed
+             object = already processed (skip on next run)
+  }
+  The visual box number = index + 1 (stable unless boxes are deleted).
+*/
+let selections = [];
+
+// Live drag
+let selStart  = null;
+let selecting = false;
+
+// How many boxes at the END of `selections` have been added since the last
+// "Identify JP" run (or since load). Only these are undoable with Ctrl+Z.
+let undoableCount = 0;
+
+// Currently selected box index (-1 = none)
+let selectedIdx = -1;
+
+// Current rotation angle in degrees (applied to bgCanvas display)
+let rotationDeg = 0;
+
+const BOX_COLOR = '#e8c547';   // single accent colour for all boxes
+
+// ── file input ────────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  originalFile = file;
+  const img    = new Image();
+  img.onload = () => {
+    originalImage = img;
+    selections    = [];
+    undoableCount = 0;
+    rotationDeg   = 0;
+    document.getElementById('rot-slider').value = 0;
+    document.getElementById('rot-deg').textContent = '0°';
+
+    const maxW = canvasArea.clientWidth  - 40;
+    const maxH = canvasArea.clientHeight - 40;
+    fitScale  = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    zoomScale = fitScale;
+
+    applyRotationAndZoom();
+
+    dropZone.classList.add('hidden');
+    wrap.classList.add('visible');
+    document.getElementById('btn-close-img').classList.add('visible');
+    document.getElementById('sep-close').style.display = '';
+    document.getElementById('rotation-row').classList.add('visible');
+    updateSelInfo();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// ── close image ───────────────────────────────────────────────────────────────
+function closeImage() {
+  originalImage = null; originalFile = null;
+  selections = []; selStart = null; selecting = false; undoableCount = 0;
+  rotationDeg = 0;
+  bgCanvas.width = bgCanvas.height = 1;
+  drawCanvas.width = drawCanvas.height = 1;
+  bgCanvas.style.width = bgCanvas.style.height = '';
+  drawCanvas.style.width = drawCanvas.style.height = '';
+  wrap.classList.remove('visible');
+  dropZone.classList.remove('hidden');
+  document.getElementById('btn-close-img').classList.remove('visible');
+  document.getElementById('sep-close').style.display = 'none';
+  document.getElementById('rotation-row').classList.remove('visible');
+  zoomBadge.classList.remove('visible');
+  updateSelInfo();
+  document.getElementById('file-input').value = '';
+}
+
+// ── rotation helpers ──────────────────────────────────────────────────────────
+
+function setRotation(deg) {
+  // clamp to [-180, 180]
+  rotationDeg = Math.max(-180, Math.min(180, deg));
+  document.getElementById('rot-slider').value = rotationDeg;
+  document.getElementById('rot-deg').textContent = rotationDeg.toFixed(1).replace('.0','') + '°';
+  // Recalculate fitScale for new rotated dimensions, then redraw
+  recalcFitScale();
+  applyRotationAndZoom();
+}
+
+function rotateDelta(delta) {
+  // For 90° steps, snap to multiples of 90 in range [-180,180]
+  let next = rotationDeg + delta;
+  // Wrap into [-180, 180]
+  while (next >  180) next -= 360;
+  while (next < -180) next += 360;
+  // Sync slider (clamp slider to its range)
+  document.getElementById('rot-slider').value = Math.max(-180, Math.min(180, next));
+  rotationDeg = next;
+  document.getElementById('rot-deg').textContent = rotationDeg.toFixed(1).replace('.0','') + '°';
+  recalcFitScale();
+  applyRotationAndZoom();
+}
+
+// Rotated bounding box dimensions
+function rotatedSize(w, h, deg) {
+  const r = deg * Math.PI / 180;
+  const cos = Math.abs(Math.cos(r));
+  const sin = Math.abs(Math.sin(r));
+  return { w: w * cos + h * sin, h: w * sin + h * cos };
+}
+
+function recalcFitScale() {
+  if (!originalImage) return;
+  const { w: rw, h: rh } = rotatedSize(originalImage.naturalWidth, originalImage.naturalHeight, rotationDeg);
+  const maxW = canvasArea.clientWidth  - 40;
+  const maxH = canvasArea.clientHeight - 40;
+  const newFit = Math.min(1, maxW / rw, maxH / rh);
+  // Keep zoom relative to old fitScale if user had zoomed in
+  const relZoom = zoomScale / fitScale;
+  fitScale  = newFit;
+  zoomScale = fitScale * relZoom;
+}
+
+// ── zoom ──────────────────────────────────────────────────────────────────────
+const ZOOM_FACTOR = 1.12;
+const ZOOM_MAX    = 8;
+
+function applyRotationAndZoom() {
+  if (!originalImage) return;
+
+  const rad = rotationDeg * Math.PI / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const nw  = originalImage.naturalWidth;
+  const nh  = originalImage.naturalHeight;
+
+  // Rotated canvas pixel dimensions (at native resolution)
+  const rotW = Math.round(nw * cos + nh * sin);
+  const rotH = Math.round(nw * sin + nh * cos);
+
+  // Draw rotated image into bgCanvas at native resolution
+  bgCanvas.width  = rotW;
+  bgCanvas.height = rotH;
+  bgCtx.save();
+  bgCtx.translate(rotW / 2, rotH / 2);
+  bgCtx.rotate(rad);
+  bgCtx.drawImage(originalImage, -nw / 2, -nh / 2, nw, nh);
+  bgCtx.restore();
+
+  // CSS display size = rotated native * zoomScale
+  const dispW = Math.round(rotW * zoomScale);
+  const dispH = Math.round(rotH * zoomScale);
+
+  bgCanvas.style.width  = dispW + 'px';
+  bgCanvas.style.height = dispH + 'px';
+
+  drawCanvas.width  = dispW;
+  drawCanvas.height = dispH;
+  drawCanvas.style.width  = dispW + 'px';
+  drawCanvas.style.height = dispH + 'px';
+
+  const pct = Math.round(zoomScale / fitScale * 100);
+  zoomBadge.textContent = pct + '%';
+  zoomBadge.classList.add('visible');
+  redrawAll();
+}
+
+// Keep applyZoom as alias so wheel handler works
+function applyZoom() { applyRotationAndZoom(); }
+
+canvasArea.addEventListener('wheel', e => {
+  if (!originalImage) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+  const newZ  = Math.min(ZOOM_MAX, Math.max(fitScale * 0.25, zoomScale * delta));
+  if (newZ === zoomScale) return;
+  const rect   = canvasArea.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left + canvasArea.scrollLeft - 20;
+  const mouseY = e.clientY - rect.top  + canvasArea.scrollTop  - 20;
+  const ratio  = newZ / zoomScale;
+  zoomScale    = newZ;
+  applyZoom();
+  canvasArea.scrollLeft = mouseX * ratio - (e.clientX - rect.left) + 20;
+  canvasArea.scrollTop  = mouseY * ratio - (e.clientY - rect.top)  + 20;
+}, { passive: false });
+
+// ── Ctrl+Z — only undoes boxes added since the last "Identify JP" ────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    if (!originalImage || undoableCount === 0) return;
+    // The box to remove is always the last one (new boxes are appended)
+    const idx = selections.length - 1;
+    selections.pop();
+    undoableCount--;
+    redrawAll();
+    updateSelInfo();
+    // Remove its output block if it somehow got one (edge case)
+    removeOutputBlock(idx);
+    if (!document.getElementById('output-body').querySelector('.output-block')) {
+      resetOutputPanel();
+    }
+    updateRegionBadge();
+  }
+});
+
+// ── coord helpers ─────────────────────────────────────────────────────────────
+// All selections are stored in ORIGINAL IMAGE coordinates.
+// Display coords = rotated by rotationDeg, then scaled by zoomScale.
+//
+// The rotated canvas has dimensions (rotW, rotH) at native resolution.
+// Its center is (rotW/2, rotH/2).  The original image center maps to that center.
+// A point (ix, iy) in original coords is rotated to:
+//   rx = cos*( ix - nw/2 ) - sin*( iy - nh/2 ) + rotW/2
+//   ry = sin*( ix - nw/2 ) + cos*( iy - nh/2 ) + rotH/2
+// Then scaled by zoomScale for display.
+
+function origToRotNative(ix, iy) {
+  if (!originalImage) return { x: ix, y: iy };
+  const rad  = rotationDeg * Math.PI / 180;
+  const cos  = Math.cos(rad), sin = Math.sin(rad);
+  const nw   = originalImage.naturalWidth, nh = originalImage.naturalHeight;
+  const rotW = bgCanvas.width, rotH = bgCanvas.height;
+  return {
+    x: cos * (ix - nw/2) - sin * (iy - nh/2) + rotW/2,
+    y: sin * (ix - nw/2) + cos * (iy - nh/2) + rotH/2,
+  };
+}
+
+function origToDisp(ix, iy) {
+  const r = origToRotNative(ix, iy);
+  return { x: r.x * zoomScale, y: r.y * zoomScale };
+}
+
+function dispToOrig(dx, dy) {
+  if (!originalImage) return { x: dx / zoomScale, y: dy / zoomScale };
+  // un-scale
+  const nx  = dx / zoomScale, ny = dy / zoomScale;
+  // un-rotate around rotated canvas center
+  const rad  = rotationDeg * Math.PI / 180;
+  const cos  = Math.cos(rad), sin = Math.sin(rad);
+  const nw   = originalImage.naturalWidth, nh = originalImage.naturalHeight;
+  const rotW = bgCanvas.width, rotH = bgCanvas.height;
+  const cx   = nx - rotW/2, cy = ny - rotH/2;
+  return {
+    x: cos * cx + sin * cy + nw/2,
+    y: -sin * cx + cos * cy + nh/2,
+  };
+}
+
+// Get the 4 display-coord corners of a selection
+// sel.corners = [{x,y}, ...] in original image coords
+function selCorners(sel) {
+  return sel.corners.map(c => origToDisp(c.x, c.y));
+}
+
+// Point-in-convex-quad test (used for click-to-select)
+function pointInQuad(px, py, corners) {
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i], b = corners[(i+1) % 4];
+    const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    if (cross < 0) return false;
+  }
+  return true;
+}
+
+function getPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+// ── pointer events ────────────────────────────────────────────────────────────
+drawCanvas.addEventListener('mousedown',  onDown);
+drawCanvas.addEventListener('mousemove',  onMove);
+drawCanvas.addEventListener('mouseup',    onUp);
+drawCanvas.addEventListener('mouseleave', onLeave);
+drawCanvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, { passive: false });
+drawCanvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
+drawCanvas.addEventListener('touchend',   onUp);
+
+function onDown(e) {
+  if (!originalImage) return;
+  const p = getPos(e);
+  // Check if click hits an × button of a confirmed box
+  for (let i = selections.length - 1; i >= 0; i--) {
+    const xBtn = getDeleteBtnRect(i);
+    if (p.x >= xBtn.x && p.x <= xBtn.x + xBtn.w &&
+        p.y >= xBtn.y && p.y <= xBtn.y + xBtn.h) {
+      deleteBox(i);
+      return;
+    }
+  }
+  selecting = true;
+  selStart  = p;
+}
+
+function onMove(e) {
+  if (!selecting || !selStart) return;
+  redrawAll(getPos(e));
+}
+
+function onUp(e) {
+  if (!selecting || !selStart) return;
+  selecting = false;
+
+  const endP = e.changedTouches
+    ? (() => {
+        const r = drawCanvas.getBoundingClientRect();
+        const t = e.changedTouches[0];
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
+      })()
+    : getPos(e);
+
+  const dRx = Math.min(endP.x, selStart.x);
+  const dRy = Math.min(endP.y, selStart.y);
+  const dRw = Math.abs(endP.x - selStart.x);
+  const dRh = Math.abs(endP.y - selStart.y);
+
+  if (dRw > 6 && dRh > 6) {
+    // Store the 4 screen corners un-rotated to original image coords.
+    // This preserves the exact quad shape — no AABB collapsing.
+    const c0 = dispToOrig(dRx,       dRy);
+    const c1 = dispToOrig(dRx + dRw, dRy);
+    const c2 = dispToOrig(dRx + dRw, dRy + dRh);
+    const c3 = dispToOrig(dRx,       dRy + dRh);
+
+    selections.push({ corners: [c0, c1, c2, c3], result: null });
+    undoableCount++;
+  } else {
+    // Tiny click — select whichever box the click is inside (topmost)
+    const clickP = endP;
+    let hit = -1;
+    for (let i = selections.length - 1; i >= 0; i--) {
+      if (pointInQuad(clickP.x, clickP.y, selCorners(selections[i]))) {
+        hit = i; break;
+      }
+    }
+    setSelectedIdx(hit !== -1 ? hit : -1);
+  }
+
+  selStart = null;
+  redrawAll();
+  updateSelInfo();
+}
+
+function onLeave() {
+  if (selecting) { selecting = false; selStart = null; redrawAll(); }
+}
+
+// ── delete a box by index ─────────────────────────────────────────────────────
+function deleteBox(idx) {
+  // If this box is within the undoable tail, reduce undoableCount
+  const undoableStart = selections.length - undoableCount;
+  if (idx >= undoableStart) undoableCount--;
+
+  // Adjust selectedIdx
+  if (selectedIdx === idx) selectedIdx = -1;
+  else if (selectedIdx > idx) selectedIdx--;
+
+  selections.splice(idx, 1);
+  redrawAll();
+  updateSelInfo();
+
+  removeOutputBlock(idx);
+  renumberOutputBlocks(idx);
+
+  // Re-apply selected class after renumber
+  document.querySelectorAll('.output-block').forEach(el => {
+    const bi = parseInt(el.dataset.boxIndex ?? '-99', 10);
+    el.classList.toggle('selected', bi === selectedIdx);
+  });
+
+  if (!document.getElementById('output-body').querySelector('.output-block')) {
+    resetOutputPanel();
+  }
+  updateRegionBadge();
+}
+
+// Returns the bounding rect of the × button for box i, in draw-canvas pixels
+// The × is at the top-right corner of the rotated quad.
+function getDeleteBtnRect(i) {
+  const corners = selCorners(selections[i]);
+  // top-right corner = corners[1]
+  const tr   = corners[1];
+  const size = 14;
+  return { x: tr.x - size/2, y: tr.y - size/2, w: size, h: size };
+}
+
+// ── selection state ───────────────────────────────────────────────────────────
+function setSelectedIdx(idx) {
+  selectedIdx = idx;
+  document.querySelectorAll('.output-block[data-box-index]').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.boxIndex, 10) === idx);
+  });
+  redrawAll();
+}
+
+// Clicking the output panel background (not on any text block) deselects
+document.getElementById('output-body').addEventListener('click', e => {
+  if (!e.target.closest('.output-block')) setSelectedIdx(-1);
+});
+
+// ── drawing ───────────────────────────────────────────────────────────────────
+function redrawAll(liveP) {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+  // grid guideline — only while actively dragging
+  if (selecting && selStart && liveP) {
+    drawGrid();
+  }
+
+  selections.forEach((sel, i) => {
+    const corners = selCorners(sel);
+    const done    = sel.result !== null;
+    const isSel   = i === selectedIdx;
+    drawBoxPoly(corners, i + 1, true, done, isSel);
+  });
+
+  // live drag preview (axis-aligned — drawn while user is dragging)
+  if (selecting && selStart && liveP) {
+    const rx = Math.min(liveP.x, selStart.x);
+    const ry = Math.min(liveP.y, selStart.y);
+    const rw = Math.abs(liveP.x - selStart.x);
+    const rh = Math.abs(liveP.y - selStart.y);
+    const previewCorners = [
+      { x: rx,      y: ry      },
+      { x: rx + rw, y: ry      },
+      { x: rx + rw, y: ry + rh },
+      { x: rx,      y: ry + rh },
+    ];
+    drawBoxPoly(previewCorners, selections.length + 1, false, false, false);
+  }
+}
+
+// Draw a subtle grid over the full draw-canvas while the user is dragging
+function drawGrid() {
+  const W    = drawCanvas.width;
+  const H    = drawCanvas.height;
+  const COLS = 8;   // vertical lines
+  const ROWS = 6;   // horizontal lines
+  const stepX = W / COLS;
+  const stepY = H / ROWS;
+
+  drawCtx.save();
+  drawCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+  drawCtx.lineWidth   = 0.75;
+  drawCtx.setLineDash([4, 4]);
+
+  // vertical lines
+  for (let i = 1; i < COLS; i++) {
+    const x = Math.round(i * stepX) + 0.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(x, 0);
+    drawCtx.lineTo(x, H);
+    drawCtx.stroke();
+  }
+
+  // horizontal lines
+  for (let j = 1; j < ROWS; j++) {
+    const y = Math.round(j * stepY) + 0.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(0, y);
+    drawCtx.lineTo(W, y);
+    drawCtx.stroke();
+  }
+
+  drawCtx.setLineDash([]);
+  drawCtx.restore();
+}
+
+/*
+  drawBoxPoly — draws one selection as a (possibly rotated) quadrilateral
+  corners     : [{x,y}, {x,y}, {x,y}, {x,y}]  — TL, TR, BR, BL in display px
+  num         : box number label
+  confirmed   : solid border + badges; false = dashed live preview
+  done        : box already has results (dimmer)
+  isSelected  : glow ring
+*/
+function drawBoxPoly(corners, num, confirmed, done, isSelected) {
+  const alpha = (done && !isSelected) ? 0.45 : 1;
+  const [tl, tr, br, bl] = corners;
+
+  drawCtx.save();
+  drawCtx.globalAlpha = alpha;
+
+  // build path
+  drawCtx.beginPath();
+  drawCtx.moveTo(tl.x, tl.y);
+  drawCtx.lineTo(tr.x, tr.y);
+  drawCtx.lineTo(br.x, br.y);
+  drawCtx.lineTo(bl.x, bl.y);
+  drawCtx.closePath();
+
+  // glow ring
+  if (isSelected) {
+    drawCtx.save();
+    drawCtx.strokeStyle = BOX_COLOR;
+    drawCtx.lineWidth   = 3;
+    drawCtx.shadowColor = BOX_COLOR;
+    drawCtx.shadowBlur  = 8;
+    drawCtx.stroke();
+    drawCtx.shadowBlur  = 0;
+    drawCtx.restore();
+  }
+
+  // subtle fill
+  if (confirmed) {
+    drawCtx.fillStyle = 'rgba(232,197,71,0.06)';
+    drawCtx.fill();
+  }
+
+  // border
+  drawCtx.strokeStyle = BOX_COLOR;
+  drawCtx.lineWidth   = 1.5;
+  drawCtx.setLineDash(confirmed ? [] : [6, 3]);
+  drawCtx.stroke();
+  drawCtx.setLineDash([]);
+
+  // corner handles (confirmed only)
+  if (confirmed) {
+    const hs = 5;
+    corners.forEach(c => {
+      drawCtx.fillStyle = BOX_COLOR;
+      drawCtx.fillRect(c.x - hs/2, c.y - hs/2, hs, hs);
+    });
+  }
+
+  // ── number badge — top LEFT corner ───────────────────────────────────────
+  drawCtx.beginPath();
+  drawCtx.arc(tl.x, tl.y, 10, 0, Math.PI * 2);
+  drawCtx.fillStyle = BOX_COLOR;
+  drawCtx.fill();
+  drawCtx.font         = 'bold 11px IBM Plex Mono, monospace';
+  drawCtx.fillStyle    = '#0e0f11';
+  drawCtx.textAlign    = 'center';
+  drawCtx.textBaseline = 'middle';
+  drawCtx.fillText(String(num), tl.x, tl.y + 0.5);
+  drawCtx.textAlign    = 'left';
+  drawCtx.textBaseline = 'alphabetic';
+
+  // ── × button — top RIGHT corner (confirmed boxes only) ──────────────────
+  if (confirmed) {
+    const xSize = 14;
+    drawCtx.fillStyle = 'rgba(240,98,146,0.85)';
+    drawCtx.beginPath();
+    drawCtx.roundRect(tr.x - xSize/2, tr.y - xSize/2, xSize, xSize, 3);
+    drawCtx.fill();
+    const pad = 3.5;
+    drawCtx.strokeStyle = '#fff';
+    drawCtx.lineWidth   = 1.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(tr.x - xSize/2 + pad,         tr.y - xSize/2 + pad);
+    drawCtx.lineTo(tr.x + xSize/2 - pad,  tr.y + xSize/2 - pad);
+    drawCtx.moveTo(tr.x + xSize/2 - pad,  tr.y - xSize/2 + pad);
+    drawCtx.lineTo(tr.x - xSize/2 + pad,         tr.y + xSize/2 - pad);
+    drawCtx.stroke();
+  }
+
+  drawCtx.restore();
+}
+
+function updateSelInfo() {
+  const n = selections.length;
+  if (n > 0) {
+    selInfoEl.textContent = n + (n === 1 ? ' box' : ' boxes');
+    selInfoEl.classList.add('visible');
+  } else {
+    selInfoEl.textContent = '';
+    selInfoEl.classList.remove('visible');
+  }
+}
+
+function clearAllSelections() {
+  selections = [];
+  undoableCount = 0;
+  redrawAll();
+  updateSelInfo();
+  resetOutputPanel();
+}
+
+// ── output sync helpers ───────────────────────────────────────────────────────
+
+// Remove the output block whose data-box-index === idx
+function removeOutputBlock(idx) {
+  const body  = document.getElementById('output-body');
+  const block = body.querySelector(`.output-block[data-box-index="${idx}"]`);
+  if (block) block.remove();
+}
+
+// After deleting the box at `deletedIdx`, every block with data-box-index > deletedIdx
+// must have its index decremented by 1 and its number badge updated.
+function renumberOutputBlocks(deletedIdx) {
+  const body   = document.getElementById('output-body');
+  const blocks = [...body.querySelectorAll('.output-block[data-box-index]')];
+  blocks.forEach(block => {
+    const oldIdx = parseInt(block.dataset.boxIndex, 10);
+    if (oldIdx > deletedIdx) {
+      const newIdx = oldIdx - 1;
+      block.dataset.boxIndex = newIdx;
+      // Update ALL box-num badges inside this block (handles multi-region wrappers)
+      const badges = block.querySelectorAll('.box-num');
+      badges.forEach(badge => {
+        // Badge text may be "3", "3-1", "3-2" etc — replace the leading number
+        badge.textContent = badge.textContent.replace(
+          /^\d+/, String(newIdx + 1)
+        );
+      });
+    }
+  });
+}
+
+function resetOutputPanel() {
+  const body = document.getElementById('output-body');
+  body.innerHTML = '<pre id="output-text">① Upload an image\n② Drag to draw selection boxes\n   Ctrl+Z undoes new boxes (before Identify JP)\n   Leave empty to scan the whole image\n③ Scroll to zoom in / out as needed\n④ Click Identify JP, or a translate button</pre>';
+  document.getElementById('region-badge').classList.remove('visible');
+  document.getElementById('region-badge').textContent = '';
+}
+
+function updateRegionBadge() {
+  let total = 0;
+  selections.forEach(s => {
+    if (s.result && s.result.regions) total += s.result.regions.length;
+  });
+  const badge = document.getElementById('region-badge');
+  if (total > 0) {
+    badge.textContent = total + (total === 1 ? ' region' : ' regions');
+    badge.classList.add('visible');
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('visible');
+  }
+}
+
+// ── crop ─────────────────────────────────────────────────────────────────────
+function getCroppedBlob(sel, callback) {
+  // Map each stored original-image corner through the current rotation
+  // to get its position on bgCanvas (native rotated pixels)
+  const rotCorners = sel.corners.map(c => origToRotNative(c.x, c.y));
+  const xs = rotCorners.map(c => c.x), ys = rotCorners.map(c => c.y);
+  const cx  = Math.max(0, Math.floor(Math.min(...xs)));
+  const cy  = Math.max(0, Math.floor(Math.min(...ys)));
+  const cx2 = Math.min(bgCanvas.width,  Math.ceil(Math.max(...xs)));
+  const cy2 = Math.min(bgCanvas.height, Math.ceil(Math.max(...ys)));
+  const cw  = cx2 - cx, ch = cy2 - cy;
+  if (cw < 4 || ch < 4) { callback(null); return; }
+  const crop = document.createElement('canvas');
+  crop.width = cw; crop.height = ch;
+  crop.getContext('2d').drawImage(bgCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+  crop.toBlob(blob => callback(blob), 'image/png');
+}
+
+// ── main action entry point ────────────────────────────────────────────────────
+// translateMode: null = JP only | 'zh' = +Chinese | 'en' = +English | 'zh+en' = +both
+//
+// Always scans ALL boxes. For each box determines what is missing and does
+// only the missing work. If nothing is selected this applies to every box.
+// If a box/text block IS selected, same logic applies — the button actions
+// are never blocked; they just skip work that is already done.
+async function runAction(translateMode) {
+  if (!originalImage) { showToast('Upload an image first.'); return; }
+
+  const apiKey   = document.getElementById('api-key').value.trim();
+  const provider = document.getElementById('provider').value;
+  if (!apiKey) { showToast('Please enter your API key in the header.'); return; }
+
+  // No selections drawn at all → scan whole image (legacy path)
+  const isWholeImage = selections.length === 0;
+
+  const spinnerL = document.getElementById('spinner-label');
+  const spinnerP = document.getElementById('spinner-progress');
+  document.getElementById('spinner').classList.add('visible');
+  spinnerL.textContent = 'Processing…';
+  spinnerP.textContent = '';
+
+  if (isWholeImage) {
+    // ── whole-image fallback (no boxes drawn) ──────────────────────────────
+    spinnerL.textContent = 'Identifying Japanese text…';
+    spinnerP.textContent = 'Whole image…';
+
+    // Use rotated canvas if rotation is applied, otherwise use original file
+    const wholeBlob = rotationDeg !== 0
+      ? await new Promise(resolve => bgCanvas.toBlob(resolve, 'image/png'))
+      : originalFile;
+
+    const fd = new FormData();
+    fd.append('image',    wholeBlob, 'image.png');
+    fd.append('provider', provider);
+    fd.append('api_key',  apiKey);
+
+    let wholeResult = { regions: [], error: null };
+    try {
+      const resp = await fetch('/extract', { method: 'POST', body: fd });
+      const data = await resp.json();
+      wholeResult = { regions: data.regions || [], error: data.error || null };
+    } catch { wholeResult = { regions: [], error: 'network error' }; }
+
+    // Render OCR output
+    const body = document.getElementById('output-body');
+    const placeholder = body.querySelector('#output-text');
+    if (placeholder) placeholder.remove();
+
+    if (wholeResult.error) {
+      const pre = document.createElement('pre');
+      pre.id = 'output-text';
+      pre.textContent = '⚠ Error: ' + wholeResult.error;
+      body.appendChild(pre);
+    } else if (wholeResult.regions.length === 0) {
+      const pre = document.createElement('pre');
+      pre.id = 'output-text';
+      pre.textContent = '— No Japanese text identified —';
+      body.appendChild(pre);
+    } else if (translateMode) {
+      // Render and immediately translate
+      for (let ri = 0; ri < wholeResult.regions.length; ri++) {
+        const block = makeBlock(ri + 1, wholeResult.regions[ri]);
+        body.appendChild(block);
+        spinnerL.textContent = 'Translating…';
+        spinnerP.textContent = `Block ${ri + 1} / ${wholeResult.regions.length}…`;
+        const jpText = block.querySelector('.output-block-text')?.textContent?.trim();
+        if (jpText && jpText !== '(empty)') {
+          await translateAndAppend(jpText, translateMode, provider, apiKey, block);
+        }
+      }
+    } else {
+      wholeResult.regions.forEach((region, ri) => {
+        body.appendChild(makeBlock(ri + 1, region));
+      });
+    }
+
+    document.getElementById('spinner').classList.remove('visible');
+    undoableCount = 0;
+    redrawAll();
+    updateRegionBadge();
+    return;
+  }
+
+  // ── Single box selected: only process that box ───────────────────────────
+  if (selectedIdx !== -1 && selections[selectedIdx]) {
+    await processBox(selectedIdx, translateMode, provider, apiKey, selections.length);
+    document.getElementById('spinner').classList.remove('visible');
+    undoableCount = 0;
+    redrawAll();
+    updateRegionBadge();
+    return;
+  }
+
+  // ── Box mode: scan ALL selections ─────────────────────────────────────────
+  const total = selections.length;
+  let anyWork = false;
+
+  for (let idx = 0; idx < selections.length; idx++) {
+    const did = await processBox(idx, translateMode, provider, apiKey, total);
+    if (did) anyWork = true;
+  }
+
+  if (!anyWork) {
+    showToast('All boxes already have the requested content.');
+  }
+
+  document.getElementById('spinner').classList.remove('visible');
+  undoableCount = 0;
+  redrawAll();
+  updateRegionBadge();
+}
+
+// ── process one box: OCR if needed, then add missing translations ─────────────
+// Returns true if any work was done.
+async function processBox(idx, translateMode, provider, apiKey, total) {
+  const sel      = selections[idx];
+  const spinnerL = document.getElementById('spinner-label');
+  const spinnerP = document.getElementById('spinner-progress');
+  let   didWork  = false;
+
+  // --- Step 1: ensure JP OCR is done ---
+  if (!sel.result) {
+    didWork = true;
+    spinnerL.textContent = 'Identifying Japanese text…';
+    spinnerP.textContent = `Box ${idx + 1} / ${total}…`;
+
+    const blob = await new Promise(resolve => getCroppedBlob(sel, resolve));
+    if (!blob) {
+      sel.result = { regions: [], error: 'crop failed' };
+    } else {
+      const fd = new FormData();
+      fd.append('image',    blob, 'region.png');
+      fd.append('provider', provider);
+      fd.append('api_key',  apiKey);
+      try {
+        const resp = await fetch('/extract', { method: 'POST', body: fd });
+        const data = await resp.json();
+        sel.result = { regions: data.regions || [], error: data.error || null };
+      } catch {
+        sel.result = { regions: [], error: 'network error' };
+      }
+    }
+    appendOutputBlock(idx, sel.result, false);
+  }
+
+  // --- Step 2: translations (only if translateMode set and OCR has text) ---
+  if (!translateMode) return didWork;
+  if (!sel.result?.regions?.length) return didWork;
+
+  const block = document.getElementById('output-body')
+    .querySelector(`.output-block[data-box-index="${idx}"]`);
+  if (!block) return didWork;
+
+  const existingLangs = new Set(
+    [...block.querySelectorAll('.translation-label')].map(el => el.textContent.trim())
+  );
+  const wantsZh  = translateMode === 'zh'    || translateMode === 'zh+en';
+  const wantsEn  = translateMode === 'en'    || translateMode === 'zh+en';
+  const missingZh = wantsZh && !existingLangs.has('中文');
+  const missingEn = wantsEn && !existingLangs.has('English');
+
+  if (!missingZh && !missingEn) return didWork;
+
+  didWork = true;
+  spinnerL.textContent = 'Translating…';
+  spinnerP.textContent = `Box ${idx + 1} / ${total}…`;
+
+  const effectiveMode = missingZh && missingEn ? 'zh+en' : missingZh ? 'zh' : 'en';
+
+  const textEls = [...block.querySelectorAll('.output-block-text')];
+  for (const textEl of textEls) {
+    const jpText = textEl.textContent.trim();
+    if (!jpText || jpText === '(empty)') continue;
+    const container = textEl.closest('.output-block') || block;
+    await translateAndAppendMissing(jpText, effectiveMode, provider, apiKey, container, existingLangs);
+  }
+
+  return didWork;
+}
+
+// ── like translateAndAppend but only adds langs NOT already present ────────────
+async function translateAndAppendMissing(jpText, mode, provider, apiKey, blockEl, existingLangs) {
+  const langs = mode === 'zh+en' ? ['zh', 'en'] : [mode];
+
+  for (const lang of langs) {
+    const label    = lang === 'zh' ? '中文' : 'English';
+    const langName = lang === 'zh' ? 'Simplified Chinese' : 'English';
+
+    if (existingLangs && existingLangs.has(label)) continue;  // already there
+
+    const row = document.createElement('div');
+    row.className = 'translation-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'translation-label';
+    lbl.textContent = label;
+    const pending = document.createElement('div');
+    pending.className = 'translation-pending';
+    pending.textContent = 'translating…';
+    row.appendChild(lbl);
+    row.appendChild(pending);
+    blockEl.appendChild(row);
+
+    try {
+      const translated = await callTranslate(jpText, langName, provider, apiKey);
+      pending.className = 'translation-text';
+      pending.textContent = translated;
+    } catch {
+      pending.className = 'translation-text';
+      pending.style.color = 'var(--danger)';
+      pending.textContent = '⚠ translation error';
+    }
+  }
+}
+
+// ── translate text and append rows to a block ──────────────────────────────────
+async function translateAndAppend(jpText, mode, provider, apiKey, blockEl) {
+  // Remove any existing translation rows on this block element
+  blockEl.querySelectorAll('.translation-row').forEach(el => el.remove());
+
+  const langs = mode === 'zh+en' ? ['zh', 'en'] : [mode];
+
+  for (const lang of langs) {
+    const label     = lang === 'zh' ? '中文' : 'English';
+    const langName  = lang === 'zh' ? 'Simplified Chinese' : 'English';
+
+    // Insert pending placeholder
+    const row = document.createElement('div');
+    row.className = 'translation-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'translation-label';
+    lbl.textContent = label;
+    const pending = document.createElement('div');
+    pending.className = 'translation-pending';
+    pending.textContent = 'translating…';
+    row.appendChild(lbl);
+    row.appendChild(pending);
+    blockEl.appendChild(row);
+
+    try {
+      const translated = await callTranslate(jpText, langName, provider, apiKey);
+      pending.className = 'translation-text';
+      pending.textContent = translated;
+    } catch (err) {
+      pending.className = 'translation-text';
+      pending.style.color = 'var(--danger)';
+      pending.textContent = '⚠ translation error';
+    }
+  }
+}
+
+// ── call AI for translation ────────────────────────────────────────────────────
+async function callTranslate(text, targetLang, provider, apiKey) {
+  const prompt = `Translate the following Japanese text into ${targetLang}. Output ONLY the translation, no explanations, no romanization, no original text.\n\n${text}`;
+
+  if (provider === 'gpt') {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    return data.choices[0].message.content.trim();
+  } else {
+    // Gemini
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0 }
+        })
+      }
+    );
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    return data.candidates[0].content.parts[0].text.trim();
+  }
+}
+
+// ── output rendering — append one box's results ───────────────────────────────
+function appendOutputBlock(idx, result, isWholeImage) {
+  const body = document.getElementById('output-body');
+
+  // Remove placeholder if present
+  const placeholder = body.querySelector('#output-text');
+  if (placeholder) placeholder.remove();
+
+  if (isWholeImage) {
+    // whole-image: render each region as its own numbered block
+    if (result.error) {
+      body.appendChild(makeErrorBlock('!', result.error));
+      return;
+    }
+    if (result.regions.length === 0) {
+      const pre = document.createElement('pre');
+      pre.id = 'output-text';
+      pre.textContent = '— No Japanese text identified —';
+      body.appendChild(pre);
+      return;
+    }
+    result.regions.forEach((region, ri) => {
+      body.appendChild(makeBlock(ri + 1, region, ri /* data-box-index not used for whole-image */));
+    });
+    return;
+  }
+
+  // Box mode: remove any existing block for this index (re-run after delete/undo edge case)
+  const existing = body.querySelector(`.output-block[data-box-index="${idx}"]`);
+  if (existing) existing.remove();
+
+  if (result.error) {
+    const block = makeErrorBlock(idx + 1, result.error);
+    block.dataset.boxIndex = idx;
+    insertBlockInOrder(body, block, idx);
+    return;
+  }
+  if (result.regions.length === 0) {
+    const block = makeEmptyBlock(idx + 1);
+    block.dataset.boxIndex = idx;
+    insertBlockInOrder(body, block, idx);
+    return;
+  }
+  if (result.regions.length === 1) {
+    const block = makeBlock(idx + 1, result.regions[0]);
+    block.dataset.boxIndex = idx;
+    insertBlockInOrder(body, block, idx);
+  } else {
+    // Multiple regions in one box: wrap in a container
+    const wrapper = document.createElement('div');
+    wrapper.className = 'output-block';
+    wrapper.dataset.boxIndex = idx;
+
+    result.regions.forEach((region, ri) => {
+      const inner = makeBlock(`${idx + 1}-${ri + 1}`, region);
+      inner.style.marginBottom = '10px';
+      inner.style.borderBottom = 'none';
+      wrapper.appendChild(inner);
+    });
+
+    // click on wrapper itself (between sub-blocks) toggles selection.
+    // Guard: if click came from an inner sub-block, that handler already toggled —
+    // stop here to prevent double-firing via bubbling.
+    wrapper.addEventListener('click', e => {
+      if (e.target.closest('.output-block-close')) return;
+      if (e.target.closest('.output-block') !== wrapper) return; // sub-block handled it
+      setSelectedIdx(selectedIdx === idx ? -1 : idx);
+    });
+
+    insertBlockInOrder(body, wrapper, idx);
+  }
+}
+
+// Insert block so output blocks are always in box-index order
+function insertBlockInOrder(body, block, idx) {
+  const existing = [...body.querySelectorAll('.output-block[data-box-index]')];
+  const after = existing.find(el => parseInt(el.dataset.boxIndex, 10) > idx);
+  if (after) body.insertBefore(block, after);
+  else body.appendChild(block);
+}
+
+function makeBlock(label, region) {
+  const orient = (region.orientation || '?').charAt(0).toUpperCase();
+  const text   = (region.text || '').trim();
+
+  const div = document.createElement('div');
+  div.className = 'output-block';
+
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+
+  const orientTag = document.createElement('span');
+  orientTag.className = 'orient-tag';
+  orientTag.textContent = '(' + orient + ')';
+
+  // close button (only for top-level blocks that have a data-box-index)
+  const closeBtn = makeBlockCloseBtn();
+
+  header.appendChild(numBadge);
+  header.appendChild(orientTag);
+  header.appendChild(closeBtn);
+
+  const textEl = document.createElement('div');
+  textEl.className = 'output-block-text';
+  textEl.textContent = text || '(empty)';
+
+  div.appendChild(header);
+  div.appendChild(textEl);
+
+  // click to select — always find the nearest ancestor with data-box-index
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const container = div.closest('[data-box-index]');
+    if (!container) return;
+    const idx = parseInt(container.dataset.boxIndex, 10);
+    if (isNaN(idx) || idx < 0) return;
+    // Toggle: select if not selected, deselect if already selected.
+    // Works for both single-region blocks and sub-blocks inside a multi-region wrapper.
+    setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+
+  return div;
+}
+
+function makeBlockCloseBtn() {
+  const btn = document.createElement('button');
+  btn.className = 'output-block-close';
+  btn.title = 'Close this box';
+  btn.innerHTML = `<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8">
+    <line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/>
+  </svg>`;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const block = btn.closest('.output-block[data-box-index]');
+    if (!block) return;
+    const idx = parseInt(block.dataset.boxIndex, 10);
+    if (!isNaN(idx)) deleteBox(idx);
+  });
+  return btn;
+}
+
+function makeErrorBlock(label, error) {
+  const div = document.createElement('div');
+  div.className = 'output-block';
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+  header.appendChild(numBadge);
+  const errSpan = document.createElement('span');
+  errSpan.style.cssText = 'font-size:11px;color:var(--danger);font-family:var(--font-mono)';
+  errSpan.textContent = '⚠ ' + error;
+  header.appendChild(errSpan);
+  header.appendChild(makeBlockCloseBtn());
+  div.appendChild(header);
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const idx = parseInt(div.dataset.boxIndex ?? '-99', 10);
+    if (idx >= 0) setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+  return div;
+}
+
+function makeEmptyBlock(label) {
+  const div = document.createElement('div');
+  div.className = 'output-block';
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+  header.appendChild(numBadge);
+  const emptySpan = document.createElement('span');
+  emptySpan.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--font-mono)';
+  emptySpan.textContent = 'no Japanese text found';
+  header.appendChild(emptySpan);
+  header.appendChild(makeBlockCloseBtn());
+  div.appendChild(header);
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const idx = parseInt(div.dataset.boxIndex ?? '-99', 10);
+    if (idx >= 0) setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+  return div;
+}
+
+// ── copy ─────────────────────────────────────────────────────────────────────
+function copyText() {
+  const blocks = document.querySelectorAll('.output-block');
+  if (!blocks.length) return;
+  const lines = [];
+  blocks.forEach(block => {
+    const num    = block.querySelector('.box-num')?.textContent   || '?';
+    const orient = block.querySelector('.orient-tag')?.textContent || '';
+    const text   = block.querySelector('.output-block-text')?.textContent || '';
+    lines.push(`[${num}]${orient}`);
+    if (text) lines.push(text);
+    // Include any translations
+    block.querySelectorAll('.translation-row').forEach(row => {
+      const lbl = row.querySelector('.translation-label')?.textContent || '';
+      const tr  = row.querySelector('.translation-text')?.textContent  || '';
+      if (tr) { lines.push(`[${lbl}] ${tr}`); }
+    });
+    lines.push('');
+  });
+  navigator.clipboard.writeText(lines.join('\n').trim())
+    .then(() => showToast('Copied to clipboard!'));
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>

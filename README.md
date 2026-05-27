@@ -1,25 +1,39 @@
 # jp-magazine-ocr
-A lightweight Web UI for Japanese physical magazine/book OCR and translation powered by GPT-4o &amp; Gemini 2.0. Supports canvas box-selection for complex multi-region vertical/horizontal text extraction.
+
+A single-page web tool for extracting and translating Japanese text from images using GPT-4o or Gemini 2.0 Flash.
+
+Designed for Japanese magazines, manga, and illustrated spreads where text and pictures are densely interleaved — traditional **vertical columns** running right-to-left, **horizontal captions** and pull-quotes, speech bubbles, panel labels, and mixed-direction layouts all on the same page. Draw selection boxes around any region, and the tool correctly identifies the reading direction of each text block and returns them in proper reading order.
+
+Translate everything to Chinese, English, or both in one click — all from your browser.
 辅助啃生肉，让啃生肉没那么痛苦。适用于未汉化的杂志切页，公式书，攻略，漫画，扫图。
-
-# JP Extract 日本語 — Japanese Text Extractor
-
-A single-page web tool for extracting and translating Japanese text from images using GPT-4o or Gemini 2.0 Flash. Draw selection boxes directly on an image, run OCR, and optionally translate to Chinese and/or English — all from your browser.
-
 ---
 
 ## Features
 
-- **Box-based OCR** — drag to draw one or more selection boxes on an image; each box is processed independently
-- **Whole-image scan** — leave the canvas empty and click Identify JP to scan the entire image at once
+- **Reads vertical and horizontal text in the same image** — each extracted region is tagged with its orientation (`vertical` or `horizontal`) and ordered as a human would read it: right-to-left columns for vertical text, top-to-bottom for horizontal
+- **Box-based OCR for cluttered layouts** — drag to draw selection boxes around specific regions; isolate a speech bubble, a caption strip, or a body-text column without picking up surrounding artwork or unrelated text
+- **Whole-image scan** — leave the canvas empty and click Identify JP to let the AI find and order every text region on the page automatically
+- **Multiple boxes per page** — draw as many boxes as needed; each is processed independently and results are numbered to match their canvas box
 - **Two AI providers** — choose between GPT-4o (OpenAI) and Gemini 2.0 Flash (Google)
-- **Inline translation** — add Chinese (中文), English, or both translations alongside any extracted text in one click
-- **Image rotation** — rotate the image ±180° with a slider before drawing boxes, useful for sideways manga pages
-- **Scroll to zoom** — pinch or scroll to zoom in/out while keeping the image sharp
+- **Inline translation** — add Chinese (中文), English, or both translations alongside extracted text in one click
+- **Image rotation** — rotate the image ±180° with a slider before drawing boxes, useful for sideways or upside-down pages
+- **Scroll to zoom** — pinch or scroll to zoom in/out for dense, small-print areas
 - **Undo** — Ctrl+Z removes the most recently drawn box (before running OCR)
 - **Click to highlight** — clicking a result block on the right panel bold-frames the corresponding canvas box; clicking again or clicking outside deselects
 - **Copy all** — copies all extracted text and translations to the clipboard in a clean numbered format
 - **No data stored** — your API key and images never leave your browser except for the direct API call to OpenAI/Google
+
+---
+
+---
+
+## Why Draw Boxes?
+
+Start with the whole-image scan — if it picks up everything correctly, you're done. But on pages where text and artwork are heavily mixed, AI models often miss text, jumble reading order, or hallucinate characters. The denser the layout, the less reliable a single full-page scan gets.
+
+That's where boxes help. Draw one around any region that isn't coming out right — a panel with several paragraphs, a cluster of speech bubbles, a caption area — and the model gets a cleaner, focused crop to work from. Boxes don't have to be precise; a region covering multiple paragraphs or bubbles is fine. Just keep going until the whole page is covered.
+
+Use Ctrl+Z to redraw a box if you misplace it, and run all boxes at once with a single click.
 
 ---
 
@@ -45,13 +59,13 @@ A single-page web tool for extracting and translating Japanese text from images 
 ### Install
 
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ### Run
 
 ```bash
-python3 server.py
+python server.py
 ```
 
 Then open [http://localhost:5000](http://localhost:5000) in your browser.
@@ -93,7 +107,11 @@ Your API key is sent directly from the browser to your local Flask server, which
 
 ## How It Works
 
-The frontend sends a cropped JPEG of each drawn box (or the whole rotated image) to `POST /extract` on the local Flask server. The server base64-encodes the image and forwards it to the selected provider with a structured OCR prompt. The model returns a JSON array of text regions, each with an `orientation` field (`vertical` or `horizontal`) and the extracted `text`. Translations are handled by a second API call made directly from the browser.
+The frontend sends a cropped JPEG of each drawn box (or the whole rotated image) to `POST /extract` on the local Flask server. The server base64-encodes the image and forwards it to the selected provider with a structured OCR prompt.
+
+The model identifies every Japanese text region in the image, tags each with its `orientation` — `vertical` for top-to-bottom columns (the default for manga body text and most editorial copy) or `horizontal` for captions, titles, and modern-layout text — and returns them in natural reading order: rightmost column first for vertical text, top-to-bottom left-to-right for horizontal. This makes it reliable for magazine spreads where both directions coexist on the same page.
+
+Translations are handled by a second API call made directly from the browser.
 
 ---
 
@@ -106,7 +124,6 @@ The frontend sends a cropped JPEG of each drawn box (or the whole rotated image)
 | requests | HTTP calls to OpenAI / Gemini APIs |
 | opencv-python | Image processing utilities |
 | reportlab / img2pdf | PDF export (optional, for future use) |
-
 
 
 https://github.com/user-attachments/assets/d497b48d-2b54-40f5-802a-fe40acbbf9a6

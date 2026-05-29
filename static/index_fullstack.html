@@ -1,0 +1,2982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Japanese Text Extractor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0e0f11;
+  --surface:  #16181c;
+  --panel:    #1c1e24;
+  --border:   #2a2d35;
+  --accent:   #e8c547;
+  --accent2:  #4fc3f7;
+  --danger:   #f06292;
+  --text:     #e8e9eb;
+  --muted:    #6b7280;
+  --radius:   8px;
+  --font-ui:  'Syne', sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+}
+
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14px; overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 340px;
+  height: 100vh;
+}
+
+/* ── header ── */
+header {
+  grid-column: 1 / -1; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 20px;
+}
+header h1 { font-size: 15px; font-weight: 800; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+header .jp { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.header-settings { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.header-settings label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.header-settings select,
+.header-settings input {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px; padding: 5px 9px; border-radius: 5px; outline: none;
+}
+.header-settings select:focus,
+.header-settings input:focus { border-color: var(--accent2); }
+.header-settings input { width: 220px; letter-spacing: .04em; }
+
+/* ── left panel ── */
+.canvas-panel {
+  background: var(--bg); display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); overflow: hidden;
+}
+
+.toolbar {
+  height: 48px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+}
+
+.btn-close-img {
+  display: none; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: 5px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-close-img.visible { display: flex; }
+.btn-close-img:hover   { color: var(--danger); border-color: var(--danger); }
+.btn-close-img svg     { width: 12px; height: 12px; flex-shrink: 0; }
+
+.toolbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+.toolbar-hint {
+  font-size: 11px; color: var(--muted); letter-spacing: .04em;
+  display: flex; align-items: center; gap: 6px;
+}
+.toolbar-hint svg { width: 13px; height: 13px; opacity: .5; flex-shrink: 0; }
+
+.zoom-badge {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  min-width: 40px; text-align: right; display: none;
+}
+.zoom-badge.visible { display: block; }
+
+.sel-info {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  opacity: 0; transition: opacity .2s; white-space: nowrap;
+}
+.sel-info.visible { opacity: 1; }
+
+.btn-run {
+  padding: 6px 13px; border-radius: 6px;
+  border: 1px solid var(--accent); background: var(--accent); color: #0e0f11;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-run:hover    { background: #f0d055; border-color: #f0d055; }
+.btn-run:disabled { opacity: .4; cursor: default; }
+
+/* translate buttons */
+.btn-translate {
+  padding: 6px 13px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-translate:hover {
+  color: var(--accent2); border-color: var(--accent2);
+  background: rgba(79,195,247,.06);
+}
+.btn-translate:disabled { opacity: .4; cursor: default; }
+
+/* action row below toolbar */
+.action-row {
+  height: 40px; background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 6px; flex-shrink: 0;
+}
+.action-row-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+
+/* rotation row */
+.rotation-row {
+  height: 38px; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: none; align-items: center; padding: 0 14px; gap: 8px; flex-shrink: 0;
+}
+.rotation-row.visible { display: flex; }
+.rotation-row label {
+  font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.rotation-row input[type=range] {
+  flex: 1; accent-color: var(--accent); cursor: pointer; height: 3px;
+  min-width: 60px;
+}
+.rotation-deg {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  min-width: 36px; text-align: right; flex-shrink: 0;
+}
+.btn-rot {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font-mono);
+  font-size: 11px; cursor: pointer; transition: all .12s; flex-shrink: 0; line-height: 1;
+}
+.btn-rot:hover { color: var(--accent); border-color: var(--accent); }
+.btn-rot-reset {
+  font-size: 10px; color: var(--muted);
+}
+
+.btn-clear {
+  padding: 5px 11px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-clear:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Identify Text Region button + dropdown */
+.btn-detect-wrap {
+  position: relative; display: inline-flex; flex-shrink: 0;
+}
+.btn-detect {
+  padding: 6px 11px 6px 13px; border-radius: 6px 0 0 6px;
+  border: 1px solid var(--accent2); border-right: none;
+  background: rgba(79,195,247,.10); color: var(--accent2);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; cursor: pointer; transition: all .15s; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-detect:hover    { background: rgba(79,195,247,.22); }
+.btn-detect:disabled { opacity: .4; cursor: default; }
+.btn-detect svg      { width: 13px; height: 13px; flex-shrink: 0; }
+.btn-detect-arrow {
+  padding: 6px 9px; border-radius: 0 6px 6px 0;
+  border: 1px solid var(--accent2);
+  background: rgba(79,195,247,.10); color: var(--accent2);
+  font-size: 10px; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center;
+}
+.btn-detect-arrow:hover    { background: rgba(79,195,247,.28); }
+.btn-detect-arrow:disabled { opacity: .4; cursor: default; }
+
+.detect-menu {
+  display: none; position: absolute; top: calc(100% + 5px); left: 0;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; min-width: 220px; z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden;
+}
+.detect-menu.open { display: block; }
+.detect-menu-header {
+  padding: 8px 14px 6px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.detect-option {
+  padding: 9px 14px; cursor: pointer; transition: background .12s;
+  display: flex; flex-direction: column; gap: 2px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.detect-option:last-child { border-bottom: none; }
+.detect-option:hover { background: rgba(79,195,247,.1); }
+.detect-option.active { background: rgba(79,195,247,.08); }
+.detect-option-name {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  color: var(--accent2); display: flex; align-items: center; gap: 6px;
+}
+.detect-option-name .detect-badge {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  padding: 1px 5px; border-radius: 3px; letter-spacing: .04em;
+}
+.detect-badge.free  { background: rgba(76,175,80,.2);  color: #81c784; border: 1px solid rgba(76,175,80,.3); }
+.detect-badge.local { background: rgba(79,195,247,.15); color: var(--accent2); border: 1px solid rgba(79,195,247,.25); }
+.detect-badge.api   { background: rgba(232,197,71,.15); color: var(--accent); border: 1px solid rgba(232,197,71,.3); }
+.detect-option-desc {
+  font-family: var(--font-mono); font-size: 10px; color: var(--muted); line-height: 1.4;
+}
+/* n-tiles sub-row inside the AI option */
+.detect-option-sub {
+  margin-top: 6px; display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+}
+.detect-option-sub input[type=number] {
+  width: 36px; background: var(--surface); border: 1px solid var(--border);
+  color: var(--accent); font-family: var(--font-mono); font-size: 11px;
+  padding: 2px 5px; border-radius: 4px; outline: none; text-align: center;
+  -moz-appearance: textfield;
+}
+.detect-option-sub input[type=number]::-webkit-inner-spin-button,
+.detect-option-sub input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+.detect-option-sub input:focus { border-color: var(--accent2); }
+
+/* zoom-flash animation on canvas-wrap */
+@keyframes zoomFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(79,195,247,.0); }
+  40%  { box-shadow: 0 0 0 8px rgba(79,195,247,.35); }
+  100% { box-shadow: 0 0 0 0 rgba(79,195,247,.0); }
+}
+.zoom-flash { animation: zoomFlash .55s ease-out; }
+
+/* scanning region highlight overlay */
+#scan-highlight {
+  position: absolute; pointer-events: none; border: 2px solid var(--accent2);
+  box-shadow: 0 0 0 3000px rgba(14,15,17,.45);
+  border-radius: 3px; transition: left .35s cubic-bezier(.4,0,.2,1),
+    top .35s cubic-bezier(.4,0,.2,1), width .35s cubic-bezier(.4,0,.2,1),
+    height .35s cubic-bezier(.4,0,.2,1);
+  display: none; z-index: 10;
+  margin: 20px; /* match canvas-wrap margin */
+  margin-left: 20px;
+}
+#scan-highlight.visible { display: block; }
+
+/* ── canvas area ── */
+.canvas-area {
+  flex: 1; overflow: auto; position: relative;
+  display: flex; align-items: flex-start; justify-content: flex-start;
+}
+
+.drop-zone {
+  position: absolute; inset: 20px; border: 2px dashed var(--border);
+  border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: border-color .2s, background .2s;
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent2); background: rgba(79,195,247,.04); }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-zone .dz-icon { font-size: 2.4rem; opacity: .4; }
+.drop-zone p { font-size: 13px; color: var(--muted); }
+.drop-zone strong { color: var(--accent2); }
+.drop-zone.hidden { display: none; }
+
+#canvas-wrap {
+  display: none; position: relative; line-height: 0; margin: 20px; flex-shrink: 0;
+}
+#canvas-wrap.visible { display: inline-block; }
+
+#bg-canvas { display: block; border-radius: var(--radius); image-rendering: auto; }
+#draw-canvas { position: absolute; top: 0; left: 0; border-radius: var(--radius); cursor: crosshair; }
+#grid-overlay {
+  position: absolute; top: 0; left: 0; border-radius: var(--radius);
+  pointer-events: none; display: none; z-index: 5;
+}
+
+/* n input label */
+.autoscan-nlabel {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 3px; white-space: nowrap;
+}
+.autoscan-nlabel input[type=number] {
+  width: 36px; background: var(--panel); border: 1px solid var(--border);
+  color: var(--accent2); font-family: var(--font-mono); font-size: 11px;
+  padding: 3px 5px; border-radius: 4px; outline: none; text-align: center;
+  -moz-appearance: textfield;
+}
+.autoscan-nlabel input[type=number]::-webkit-inner-spin-button,
+.autoscan-nlabel input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+.autoscan-nlabel input[type=number]:focus { border-color: var(--accent2); }
+
+/* ── right output panel ── */
+.output-panel { background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+.output-header {
+  height: 48px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px; flex-shrink: 0;
+}
+.output-header span { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.region-badge {
+  font-family: var(--font-mono); font-size: 10px; background: var(--accent);
+  color: #0e0f11; padding: 2px 7px; border-radius: 20px; font-weight: 600; display: none;
+}
+.region-badge.visible { display: inline-block; }
+.btn-copy {
+  margin-left: auto; padding: 5px 11px; border-radius: 5px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+.output-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+.output-block {
+  margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; transition: background .12s;
+}
+.output-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.output-block:hover { background: rgba(255,255,255,.02); }
+.output-block.selected {
+  background: rgba(232,197,71,.07);
+  outline: 1px solid rgba(232,197,71,.3);
+  outline-offset: 2px;
+}
+.output-block-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.box-num {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  background: var(--accent); color: #0e0f11;
+  width: 20px; height: 20px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.orient-tag {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: var(--accent2); background: rgba(79,195,247,.12);
+  border: 1px solid rgba(79,195,247,.25);
+  padding: 1px 6px; border-radius: 4px; letter-spacing: .05em;
+}
+/* close button on output block */
+.output-block-close {
+  margin-left: auto; width: 18px; height: 18px; border-radius: 4px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .12s; padding: 0;
+}
+.output-block-close:hover { color: var(--danger); border-color: var(--danger); background: rgba(240,98,146,.1); }
+.output-block-close svg { width: 10px; height: 10px; }
+.output-block-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--text); white-space: pre-wrap; word-break: break-all; padding-left: 28px;
+}
+/* translation rows */
+.translation-row {
+  padding-left: 28px; margin-top: 6px;
+}
+.translation-label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.translation-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--accent2); white-space: pre-wrap; word-break: break-all;
+}
+.translation-pending {
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  font-style: italic;
+}
+#output-text {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  color: var(--muted); white-space: pre-wrap; word-break: break-all;
+}
+
+/* spinner */
+.spinner-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(14,15,17,.7);
+  z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+}
+.spinner-overlay.visible { display: flex; }
+.spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-overlay p { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+.spinner-progress { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-top: -4px; }
+.btn-force-stop {
+  margin-top: 14px; padding: 7px 18px; border-radius: 6px;
+  border: 1px solid var(--danger); background: rgba(240,98,146,.12); color: var(--danger);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 7px;
+}
+.btn-force-stop:hover { background: rgba(240,98,146,.28); }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 20px; border-radius: 8px; font-size: 13px;
+  font-family: var(--font-mono); opacity: 0;
+  transition: opacity .25s, transform .25s; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── OCR engine selector ───────────────────────────────────────────── */
+.ocr-engine-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  flex-wrap: wrap;
+}
+.ocr-engine-label {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+  min-width: 72px;
+}
+.ocr-engine-options {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ocr-engine-opt {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+.ocr-engine-opt input[type=radio] {
+  accent-color: var(--accent, #5b9bd5);
+  cursor: pointer;
+}
+.ocr-local-badge {
+  font-size: 9px;
+  background: #2a7a2a;
+  color: #9ef09e;
+  border-radius: 3px;
+  padding: 1px 4px;
+  vertical-align: middle;
+}
+/* engine comparison sections inside a box block */
+.engine-section { padding: 8px 0 4px; }
+.engine-section + .engine-section {
+  border-top: 1px dashed var(--border);
+  margin-top: 6px;
+  padding-top: 10px;
+}
+.engine-label-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 4px; padding-left: 28px;
+}
+.engine-tag {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px;
+}
+.engine-tag.ai     { background: rgba(232,197,71,.18); color: var(--accent);  border: 1px solid rgba(232,197,71,.35); }
+.engine-tag.easyocr{ background: rgba(76,175,80,.18);  color: #81c784;         border: 1px solid rgba(76,175,80,.3); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo" style="font-size: 1.5rem; line-height: 1.2;">
+  AI translation tool for Japanese anime magazines
+  <span style="font-weight: 400; font-size: 1.5rem; opacity: 0.8; display: block; margin-top: 2px;">
+    AI框选识图翻译，啃日杂切页公式书生肉 <span class="jp" style="opacity: 0.6;">日本語</span>
+  </span>
+</div>
+    <div class="header-settings">
+      <label>Provider</label>
+      <select id="provider">
+        <option value="gpt">GPT-4o</option>
+        <option value="gemini">Gemini 2.0 Flash</option>
+      </select>
+      <label>API Key</label>
+      <input type="password" id="api-key" placeholder="Paste key here…">
+    </div>
+  </header>
+
+  <div class="canvas-panel">
+    <div class="toolbar">
+      <button class="btn-close-img" id="btn-close-img" onclick="closeImage()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+        </svg>
+        Close image
+      </button>
+      <div class="toolbar-sep" id="sep-close" style="display:none"></div>
+
+      <div class="toolbar-hint">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke-dasharray="3 2"/>
+        </svg>
+        Drag to add boxes · Scroll to zoom · Ctrl+Z to undo
+      </div>
+
+      <span class="zoom-badge" id="zoom-badge"></span>
+      <span class="sel-info"   id="sel-info"></span>
+
+      <button class="btn-clear" onclick="clearAllSelections()">Clear all</button>
+    </div>
+
+    <!-- action buttons row -->
+    <div class="action-row">
+
+      <!-- ── Identify Text Region split-button ── -->
+      <div class="btn-detect-wrap" id="detect-wrap">
+        <button class="btn-detect" id="btn-detect" onclick="runDetect()" title="Detect text regions using the selected method">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke-dasharray="3 2"/>
+            <line x1="4" y1="5.5" x2="12" y2="5.5"/>
+            <line x1="4" y1="8"   x2="10" y2="8"/>
+            <line x1="4" y1="10.5" x2="8" y2="10.5"/>
+          </svg>
+          <span id="detect-btn-label">Identify Text Region</span>
+        </button>
+        <button class="btn-detect-arrow" id="btn-detect-arrow" onclick="toggleDetectMenu(event)" title="Choose detection method">▾</button>
+
+        <div class="detect-menu" id="detect-menu">
+          <div class="detect-menu-header">Detection Method</div>
+
+          <div class="detect-option active" data-method="easyocr" onclick="selectDetectMethod('easyocr',this)">
+            <div class="detect-option-name">
+              EasyOCR
+              <span class="detect-badge free">FREE</span>
+              <span class="detect-badge local">LOCAL</span>
+            </div>
+            <div class="detect-option-desc">Neural text detector, supports Japanese.<br>Best quality. Requires <code>pip install easyocr</code>.</div>
+          </div>
+
+          <div class="detect-option" data-method="east" onclick="selectDetectMethod('east',this)">
+            <div class="detect-option-name">
+              EAST + OpenCV
+              <span class="detect-badge free">FREE</span>
+              <span class="detect-badge local">LOCAL</span>
+            </div>
+            <div class="detect-option-desc">Deep text detector, fast &amp; accurate.<br>Needs <code>frozen_east_text_detection.pb</code> in server dir.</div>
+          </div>
+
+          <div class="detect-option" data-method="mser" onclick="selectDetectMethod('mser',this)">
+            <div class="detect-option-name">
+              MSER (OpenCV)
+              <span class="detect-badge free">FREE</span>
+              <span class="detect-badge local">LOCAL</span>
+            </div>
+            <div class="detect-option-desc">Zero-install, built into OpenCV.<br>Works best on clean scans / manga.</div>
+          </div>
+
+          <div class="detect-option" data-method="ai" onclick="selectDetectMethod('ai',this)">
+            <div class="detect-option-name">
+              AI Quadtree
+              <span class="detect-badge api">API KEY</span>
+            </div>
+            <div class="detect-option-desc">Recursively subdivides image to locate JP text regions.</div>
+            <div class="detect-option-sub">
+              2^<input type="number" id="autoscan-n" value="4" min="1" max="5" step="1"
+                       title="n (1–5): image divided into 2^n tiles"
+                       onclick="event.stopPropagation()" oninput="event.stopPropagation()">tiles
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-row-sep"></div>
+
+      <!-- ── Identify JP split-button with OCR engine dropdown ── -->
+      <div class="btn-detect-wrap" id="identify-wrap">
+        <button class="btn-run" id="btn-run" onclick="runAction(null)" style="border-radius:6px 0 0 6px;border-right:none;">Identify JP
+          <span id="ocr-engine-badge" style="font-size:9px;opacity:.7;margin-left:4px;font-weight:600;letter-spacing:.04em;">AI</span>
+        </button>
+        <button class="btn-run" id="btn-run-arrow" onclick="toggleOcrMenu(event)" title="Choose OCR engine" style="padding:6px 9px;border-radius:0 6px 6px 0;">▾</button>
+        <div class="detect-menu" id="ocr-menu" style="min-width:200px;">
+          <div class="detect-menu-header">OCR Engine for "Identify JP"</div>
+          <div class="detect-option active" id="ocr-opt-ai" onclick="selectOcrEngine('ai',this)">
+            <div class="detect-option-name">AI (API key) <span class="detect-badge api">API KEY</span></div>
+            <div class="detect-option-desc">GPT-4o or Gemini — reads text via vision model.</div>
+          </div>
+          <div class="detect-option" id="ocr-opt-easyocr" onclick="selectOcrEngine('easyocr',this)">
+            <div class="detect-option-name">EasyOCR <span class="detect-badge free">FREE</span><span class="detect-badge local">LOCAL</span></div>
+            <div class="detect-option-desc">Local neural OCR — no API key needed.<br>Re-runs even on already-identified boxes.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-row-sep"></div>
+      <button class="btn-translate" onclick="runAction('zh')">+ 中文</button>
+      <button class="btn-translate" onclick="runAction('en')">+ English</button>
+      <button class="btn-translate" onclick="runAction('zh+en')">+ 中文 &amp; English</button>
+
+      <div class="action-row-sep"></div>
+
+      <!-- ── Remove Translation split-button ── -->
+      <div class="btn-detect-wrap" id="remove-trans-wrap">
+        <button class="btn-translate" id="btn-remove-trans" onclick="removeTranslation(_removeTransMode)"
+          style="border-radius:6px 0 0 6px;border-right:none;color:var(--danger);border-color:var(--danger);opacity:.75;"
+          title="Remove selected translation from all boxes">
+          − <span id="remove-trans-label">中文 &amp; English</span>
+        </button>
+        <button class="btn-translate" id="btn-remove-trans-arrow" onclick="toggleRemoveTransMenu(event)"
+          style="padding:6px 9px;border-radius:0 6px 6px 0;color:var(--danger);border-color:var(--danger);opacity:.75;">▾</button>
+        <div class="detect-menu" id="remove-trans-menu" style="min-width:180px;">
+          <div class="detect-menu-header">Remove Which Translation</div>
+          <div class="detect-option" onclick="selectRemoveTransMode('zh',this)">
+            <div class="detect-option-name" style="color:var(--danger);">中文</div>
+            <div class="detect-option-desc">Remove Chinese translations from all boxes.</div>
+          </div>
+          <div class="detect-option" onclick="selectRemoveTransMode('en',this)">
+            <div class="detect-option-name" style="color:var(--danger);">English</div>
+            <div class="detect-option-desc">Remove English translations from all boxes.</div>
+          </div>
+          <div class="detect-option active" onclick="selectRemoveTransMode('zh+en',this)">
+            <div class="detect-option-name" style="color:var(--danger);">中文 &amp; English</div>
+            <div class="detect-option-desc">Remove all translations from all boxes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- rotation row (shown once image loaded) -->
+    <div class="rotation-row" id="rotation-row">
+      <label>Rotate</label>
+      <input type="range" id="rot-slider" min="-180" max="180" step="0.5" value="0"
+             oninput="setRotation(parseFloat(this.value))">
+      <span class="rotation-deg" id="rot-deg">0°</span>
+      <button class="btn-rot btn-rot-reset" onclick="setRotation(0)" title="Reset rotation">Reset</button>
+    </div>
+
+    <div class="canvas-area" id="canvas-area">
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="dz-icon">🖼</div>
+        <p><strong>Click or drag</strong> an image here</p>
+        <p>JPG · PNG · WEBP</p>
+      </div>
+      <div id="canvas-wrap">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+        <canvas id="grid-overlay"></canvas>
+      </div>
+      <div id="scan-highlight"></div>
+    </div>
+  </div><!-- end canvas-panel -->
+
+  <div class="output-panel">
+    <div class="output-header">
+      <span>Extracted Text</span>
+      <span class="region-badge" id="region-badge"></span>
+      <button class="btn-copy" onclick="copyText()">Save TXT</button>
+      <button class="btn-copy" id="btn-export-img" onclick="exportImageWithBoxes()" title="Download image with bounding boxes drawn on it">⬛ Image+Boxes</button>
+    </div>
+    <div class="output-body" id="output-body">
+      <pre id="output-text">① Upload an image
+② Drag to draw selection boxes
+   Ctrl+Z undoes the last box
+   Leave empty to scan the whole image
+③ Scroll to zoom in / out as needed
+④ Click  Identify JP ›</pre>
+    </div>
+  </div>
+</div>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <p id="spinner-label">Processing…</p>
+  <div class="spinner-progress" id="spinner-progress"></div>
+  <button class="btn-force-stop" id="btn-force-stop" onclick="forceStopScan()" style="display:none">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+      <rect x="2" y="2" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+    Force Stop
+  </button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── refs ──────────────────────────────────────────────────────────────────────
+const bgCanvas   = document.getElementById('bg-canvas');
+const drawCanvas = document.getElementById('draw-canvas');
+const bgCtx      = bgCanvas.getContext('2d');
+const drawCtx    = drawCanvas.getContext('2d');
+const wrap       = document.getElementById('canvas-wrap');
+const dropZone   = document.getElementById('drop-zone');
+const selInfoEl  = document.getElementById('sel-info');
+const zoomBadge  = document.getElementById('zoom-badge');
+const canvasArea = document.getElementById('canvas-area');
+
+// ── Detect menu state ─────────────────────────────────────────────────────────
+let _detectMethod = 'easyocr';
+
+function toggleDetectMenu(e) {
+  e.stopPropagation();
+  document.getElementById('detect-menu').classList.toggle('open');
+}
+function selectDetectMethod(method, el) {
+  _detectMethod = method;
+  document.querySelectorAll('.detect-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('detect-menu').classList.remove('open');
+  // Update button label to show current method
+  const names = { easyocr:'EasyOCR', east:'EAST', mser:'MSER', ai:'AI Quadtree' };
+  document.getElementById('detect-btn-label').textContent =
+    'Identify Text Region · ' + names[method];
+}
+// Close menu when clicking outside
+document.addEventListener('click', () => {
+  document.getElementById('detect-menu')?.classList.remove('open');
+});
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let originalImage = null;
+let originalFile  = null;
+let fitScale  = 1;
+let zoomScale = 1;
+
+/*
+  Each selection:
+  {
+    x, y, w, h   — in original image pixels
+    result: null | { regions: [...], error: string|null }
+             null  = not yet processed
+             object = already processed (skip on next run)
+  }
+  The visual box number = index + 1 (stable unless boxes are deleted).
+*/
+let selections = [];
+
+// Live drag
+let selStart  = null;
+let selecting = false;
+
+// How many boxes at the END of `selections` have been added since the last
+// "Identify JP" run (or since load). Only these are undoable with Ctrl+Z.
+let undoableCount = 0;
+
+// Currently selected box index (-1 = none)
+let selectedIdx = -1;
+
+// Current rotation angle in degrees (applied to bgCanvas display)
+let rotationDeg = 0;
+
+const BOX_COLOR = '#e8c547';   // single accent colour for all boxes
+
+// ── file input ────────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  originalFile = file;
+  const img    = new Image();
+  img.onload = () => {
+    originalImage = img;
+    selections    = [];
+    undoableCount = 0;
+    rotationDeg   = 0;
+    document.getElementById('rot-slider').value = 0;
+    document.getElementById('rot-deg').textContent = '0°';
+
+    const maxW = canvasArea.clientWidth  - 40;
+    const maxH = canvasArea.clientHeight - 40;
+    fitScale  = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    zoomScale = fitScale;
+
+    applyRotationAndZoom();
+
+    dropZone.classList.add('hidden');
+    wrap.classList.add('visible');
+    document.getElementById('btn-close-img').classList.add('visible');
+    document.getElementById('sep-close').style.display = '';
+    document.getElementById('rotation-row').classList.add('visible');
+    updateSelInfo();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// ── close image ───────────────────────────────────────────────────────────────
+function closeImage() {
+  originalImage = null; originalFile = null;
+  selections = []; selStart = null; selecting = false; undoableCount = 0;
+  rotationDeg = 0;
+  bgCanvas.width = bgCanvas.height = 1;
+  drawCanvas.width = drawCanvas.height = 1;
+  bgCanvas.style.width = bgCanvas.style.height = '';
+  drawCanvas.style.width = drawCanvas.style.height = '';
+  wrap.classList.remove('visible');
+  dropZone.classList.remove('hidden');
+  document.getElementById('btn-close-img').classList.remove('visible');
+  document.getElementById('sep-close').style.display = 'none';
+  document.getElementById('rotation-row').classList.remove('visible');
+  zoomBadge.classList.remove('visible');
+  updateSelInfo();
+  document.getElementById('file-input').value = '';
+}
+
+// ── rotation helpers ──────────────────────────────────────────────────────────
+
+function setRotation(deg) {
+  // clamp to [-180, 180]
+  rotationDeg = Math.max(-180, Math.min(180, deg));
+  document.getElementById('rot-slider').value = rotationDeg;
+  document.getElementById('rot-deg').textContent = rotationDeg.toFixed(1).replace('.0','') + '°';
+  // Recalculate fitScale for new rotated dimensions, then redraw
+  recalcFitScale();
+  applyRotationAndZoom();
+}
+
+function rotateDelta(delta) {
+  // For 90° steps, snap to multiples of 90 in range [-180,180]
+  let next = rotationDeg + delta;
+  // Wrap into [-180, 180]
+  while (next >  180) next -= 360;
+  while (next < -180) next += 360;
+  // Sync slider (clamp slider to its range)
+  document.getElementById('rot-slider').value = Math.max(-180, Math.min(180, next));
+  rotationDeg = next;
+  document.getElementById('rot-deg').textContent = rotationDeg.toFixed(1).replace('.0','') + '°';
+  recalcFitScale();
+  applyRotationAndZoom();
+}
+
+// Rotated bounding box dimensions
+function rotatedSize(w, h, deg) {
+  const r = deg * Math.PI / 180;
+  const cos = Math.abs(Math.cos(r));
+  const sin = Math.abs(Math.sin(r));
+  return { w: w * cos + h * sin, h: w * sin + h * cos };
+}
+
+function recalcFitScale() {
+  if (!originalImage) return;
+  const { w: rw, h: rh } = rotatedSize(originalImage.naturalWidth, originalImage.naturalHeight, rotationDeg);
+  const maxW = canvasArea.clientWidth  - 40;
+  const maxH = canvasArea.clientHeight - 40;
+  const newFit = Math.min(1, maxW / rw, maxH / rh);
+  // Keep zoom relative to old fitScale if user had zoomed in
+  const relZoom = zoomScale / fitScale;
+  fitScale  = newFit;
+  zoomScale = fitScale * relZoom;
+}
+
+// ── zoom ──────────────────────────────────────────────────────────────────────
+const ZOOM_FACTOR = 1.12;
+const ZOOM_MAX    = 8;
+
+function applyRotationAndZoom() {
+  if (!originalImage) return;
+
+  const rad = rotationDeg * Math.PI / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const nw  = originalImage.naturalWidth;
+  const nh  = originalImage.naturalHeight;
+
+  // Rotated canvas pixel dimensions (at native resolution)
+  const rotW = Math.round(nw * cos + nh * sin);
+  const rotH = Math.round(nw * sin + nh * cos);
+
+  // Draw rotated image into bgCanvas at native resolution
+  bgCanvas.width  = rotW;
+  bgCanvas.height = rotH;
+  bgCtx.save();
+  bgCtx.translate(rotW / 2, rotH / 2);
+  bgCtx.rotate(rad);
+  bgCtx.drawImage(originalImage, -nw / 2, -nh / 2, nw, nh);
+  bgCtx.restore();
+
+  // CSS display size = rotated native * zoomScale
+  const dispW = Math.round(rotW * zoomScale);
+  const dispH = Math.round(rotH * zoomScale);
+
+  bgCanvas.style.width  = dispW + 'px';
+  bgCanvas.style.height = dispH + 'px';
+
+  drawCanvas.width  = dispW;
+  drawCanvas.height = dispH;
+  drawCanvas.style.width  = dispW + 'px';
+  drawCanvas.style.height = dispH + 'px';
+
+  const pct = Math.round(zoomScale / fitScale * 100);
+  zoomBadge.textContent = pct + '%';
+  zoomBadge.classList.add('visible');
+  redrawAll();
+}
+
+// Keep applyZoom as alias so wheel handler works
+function applyZoom() { applyRotationAndZoom(); }
+
+canvasArea.addEventListener('wheel', e => {
+  if (!originalImage) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+  const newZ  = Math.min(ZOOM_MAX, Math.max(fitScale * 0.25, zoomScale * delta));
+  if (newZ === zoomScale) return;
+  const rect   = canvasArea.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left + canvasArea.scrollLeft - 20;
+  const mouseY = e.clientY - rect.top  + canvasArea.scrollTop  - 20;
+  const ratio  = newZ / zoomScale;
+  zoomScale    = newZ;
+  applyZoom();
+  canvasArea.scrollLeft = mouseX * ratio - (e.clientX - rect.left) + 20;
+  canvasArea.scrollTop  = mouseY * ratio - (e.clientY - rect.top)  + 20;
+}, { passive: false });
+
+// ── Ctrl+Z — only undoes boxes added since the last "Identify JP" ────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    if (!originalImage || undoableCount === 0) return;
+    // The box to remove is always the last one (new boxes are appended)
+    const idx = selections.length - 1;
+    selections.pop();
+    undoableCount--;
+    redrawAll();
+    updateSelInfo();
+    // Remove its output block if it somehow got one (edge case)
+    removeOutputBlock(idx);
+    if (!document.getElementById('output-body').querySelector('.output-block')) {
+      resetOutputPanel();
+    }
+    updateRegionBadge();
+  }
+});
+
+// ── coord helpers ─────────────────────────────────────────────────────────────
+// All selections are stored in ORIGINAL IMAGE coordinates.
+// Display coords = rotated by rotationDeg, then scaled by zoomScale.
+//
+// The rotated canvas has dimensions (rotW, rotH) at native resolution.
+// Its center is (rotW/2, rotH/2).  The original image center maps to that center.
+// A point (ix, iy) in original coords is rotated to:
+//   rx = cos*( ix - nw/2 ) - sin*( iy - nh/2 ) + rotW/2
+//   ry = sin*( ix - nw/2 ) + cos*( iy - nh/2 ) + rotH/2
+// Then scaled by zoomScale for display.
+
+function origToRotNative(ix, iy) {
+  if (!originalImage) return { x: ix, y: iy };
+  const rad  = rotationDeg * Math.PI / 180;
+  const cos  = Math.cos(rad), sin = Math.sin(rad);
+  const nw   = originalImage.naturalWidth, nh = originalImage.naturalHeight;
+  const rotW = bgCanvas.width, rotH = bgCanvas.height;
+  return {
+    x: cos * (ix - nw/2) - sin * (iy - nh/2) + rotW/2,
+    y: sin * (ix - nw/2) + cos * (iy - nh/2) + rotH/2,
+  };
+}
+
+function origToDisp(ix, iy) {
+  const r = origToRotNative(ix, iy);
+  return { x: r.x * zoomScale, y: r.y * zoomScale };
+}
+
+function dispToOrig(dx, dy) {
+  if (!originalImage) return { x: dx / zoomScale, y: dy / zoomScale };
+  // un-scale
+  const nx  = dx / zoomScale, ny = dy / zoomScale;
+  // un-rotate around rotated canvas center
+  const rad  = rotationDeg * Math.PI / 180;
+  const cos  = Math.cos(rad), sin = Math.sin(rad);
+  const nw   = originalImage.naturalWidth, nh = originalImage.naturalHeight;
+  const rotW = bgCanvas.width, rotH = bgCanvas.height;
+  const cx   = nx - rotW/2, cy = ny - rotH/2;
+  return {
+    x: cos * cx + sin * cy + nw/2,
+    y: -sin * cx + cos * cy + nh/2,
+  };
+}
+
+// Get the 4 display-coord corners of a selection
+// sel.corners = [{x,y}, ...] in original image coords
+function selCorners(sel) {
+  return sel.corners.map(c => origToDisp(c.x, c.y));
+}
+
+// Point-in-convex-quad test (used for click-to-select)
+function pointInQuad(px, py, corners) {
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i], b = corners[(i+1) % 4];
+    const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    if (cross < 0) return false;
+  }
+  return true;
+}
+
+function getPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+// ── pointer events ────────────────────────────────────────────────────────────
+drawCanvas.addEventListener('mousedown',  onDown);
+drawCanvas.addEventListener('mousemove',  onMove);
+drawCanvas.addEventListener('mouseup',    onUp);
+drawCanvas.addEventListener('mouseleave', onLeave);
+drawCanvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, { passive: false });
+drawCanvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, { passive: false });
+drawCanvas.addEventListener('touchend',   onUp);
+
+function onDown(e) {
+  if (!originalImage) return;
+  const p = getPos(e);
+  // Check if click hits an × button of a confirmed box
+  for (let i = selections.length - 1; i >= 0; i--) {
+    const xBtn = getDeleteBtnRect(i);
+    if (p.x >= xBtn.x && p.x <= xBtn.x + xBtn.w &&
+        p.y >= xBtn.y && p.y <= xBtn.y + xBtn.h) {
+      deleteBox(i);
+      return;
+    }
+  }
+  selecting = true;
+  selStart  = p;
+}
+
+function onMove(e) {
+  if (!selecting || !selStart) return;
+  redrawAll(getPos(e));
+}
+
+function onUp(e) {
+  if (!selecting || !selStart) return;
+  selecting = false;
+
+  const endP = e.changedTouches
+    ? (() => {
+        const r = drawCanvas.getBoundingClientRect();
+        const t = e.changedTouches[0];
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
+      })()
+    : getPos(e);
+
+  const dRx = Math.min(endP.x, selStart.x);
+  const dRy = Math.min(endP.y, selStart.y);
+  const dRw = Math.abs(endP.x - selStart.x);
+  const dRh = Math.abs(endP.y - selStart.y);
+
+  if (dRw > 6 && dRh > 6) {
+    // Store the 4 screen corners un-rotated to original image coords.
+    // This preserves the exact quad shape — no AABB collapsing.
+    const c0 = dispToOrig(dRx,       dRy);
+    const c1 = dispToOrig(dRx + dRw, dRy);
+    const c2 = dispToOrig(dRx + dRw, dRy + dRh);
+    const c3 = dispToOrig(dRx,       dRy + dRh);
+
+    selections.push({ corners: [c0, c1, c2, c3], result: null });
+    undoableCount++;
+  } else {
+    // Tiny click — select whichever box the click is inside (topmost)
+    const clickP = endP;
+    let hit = -1;
+    for (let i = selections.length - 1; i >= 0; i--) {
+      if (pointInQuad(clickP.x, clickP.y, selCorners(selections[i]))) {
+        hit = i; break;
+      }
+    }
+    setSelectedIdx(hit !== -1 ? hit : -1);
+  }
+
+  selStart = null;
+  redrawAll();
+  updateSelInfo();
+}
+
+function onLeave() {
+  if (selecting) { selecting = false; selStart = null; redrawAll(); }
+}
+
+// ── delete a box by index ─────────────────────────────────────────────────────
+function deleteBox(idx) {
+  // If this box is within the undoable tail, reduce undoableCount
+  const undoableStart = selections.length - undoableCount;
+  if (idx >= undoableStart) undoableCount--;
+
+  // Adjust selectedIdx
+  if (selectedIdx === idx) selectedIdx = -1;
+  else if (selectedIdx > idx) selectedIdx--;
+
+  selections.splice(idx, 1);
+  redrawAll();
+  updateSelInfo();
+
+  removeOutputBlock(idx);
+  renumberOutputBlocks(idx);
+
+  // Re-apply selected class after renumber
+  document.querySelectorAll('.output-block').forEach(el => {
+    const bi = parseInt(el.dataset.boxIndex ?? '-99', 10);
+    el.classList.toggle('selected', bi === selectedIdx);
+  });
+
+  if (!document.getElementById('output-body').querySelector('.output-block')) {
+    resetOutputPanel();
+  }
+  updateRegionBadge();
+}
+
+// Returns the bounding rect of the × button for box i, in draw-canvas pixels
+// The × is at the top-right corner of the rotated quad.
+function getDeleteBtnRect(i) {
+  const corners = selCorners(selections[i]);
+  // top-right corner = corners[1]
+  const tr   = corners[1];
+  const size = 14;
+  return { x: tr.x - size/2, y: tr.y - size/2, w: size, h: size };
+}
+
+// ── selection state ───────────────────────────────────────────────────────────
+function setSelectedIdx(idx) {
+  selectedIdx = idx;
+  document.querySelectorAll('.output-block[data-box-index]').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.boxIndex, 10) === idx);
+  });
+  redrawAll();
+}
+
+// Clicking the output panel background (not on any text block) deselects
+document.getElementById('output-body').addEventListener('click', e => {
+  if (!e.target.closest('.output-block')) setSelectedIdx(-1);
+});
+
+// ── drawing ───────────────────────────────────────────────────────────────────
+function redrawAll(liveP) {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+  // grid guideline — only while actively dragging
+  if (selecting && selStart && liveP) {
+    drawGrid();
+  }
+
+  selections.forEach((sel, i) => {
+    const done  = sel.result !== null;
+    const isSel = i === selectedIdx;
+    if (sel._polyRects && sel._polyRects.length > 0) {
+      // Auto-scan selection: draw the actual polygon shape of each constituent rect
+      drawPolyGroup(sel._polyRects, i + 1, done, isSel);
+    } else {
+      const corners = selCorners(sel);
+      drawBoxPoly(corners, i + 1, true, done, isSel);
+    }
+  });
+
+  // live drag preview (axis-aligned — drawn while user is dragging)
+  if (selecting && selStart && liveP) {
+    const rx = Math.min(liveP.x, selStart.x);
+    const ry = Math.min(liveP.y, selStart.y);
+    const rw = Math.abs(liveP.x - selStart.x);
+    const rh = Math.abs(liveP.y - selStart.y);
+    const previewCorners = [
+      { x: rx,      y: ry      },
+      { x: rx + rw, y: ry      },
+      { x: rx + rw, y: ry + rh },
+      { x: rx,      y: ry + rh },
+    ];
+    drawBoxPoly(previewCorners, selections.length + 1, false, false, false);
+  }
+}
+
+// Draw a subtle grid over the full draw-canvas while the user is dragging
+function drawGrid() {
+  const W    = drawCanvas.width;
+  const H    = drawCanvas.height;
+  const COLS = 8;   // vertical lines
+  const ROWS = 6;   // horizontal lines
+  const stepX = W / COLS;
+  const stepY = H / ROWS;
+
+  drawCtx.save();
+  drawCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+  drawCtx.lineWidth   = 0.75;
+  drawCtx.setLineDash([4, 4]);
+
+  // vertical lines
+  for (let i = 1; i < COLS; i++) {
+    const x = Math.round(i * stepX) + 0.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(x, 0);
+    drawCtx.lineTo(x, H);
+    drawCtx.stroke();
+  }
+
+  // horizontal lines
+  for (let j = 1; j < ROWS; j++) {
+    const y = Math.round(j * stepY) + 0.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(0, y);
+    drawCtx.lineTo(W, y);
+    drawCtx.stroke();
+  }
+
+  drawCtx.setLineDash([]);
+  drawCtx.restore();
+}
+
+/*
+  drawBoxPoly — draws one selection as a (possibly rotated) quadrilateral
+  corners     : [{x,y}, {x,y}, {x,y}, {x,y}]  — TL, TR, BR, BL in display px
+  num         : box number label
+  confirmed   : solid border + badges; false = dashed live preview
+  done        : box already has results (dimmer)
+  isSelected  : glow ring
+*/
+function drawBoxPoly(corners, num, confirmed, done, isSelected) {
+  const alpha = (done && !isSelected) ? 0.45 : 1;
+  const [tl, tr, br, bl] = corners;
+
+  drawCtx.save();
+  drawCtx.globalAlpha = alpha;
+
+  // build path
+  drawCtx.beginPath();
+  drawCtx.moveTo(tl.x, tl.y);
+  drawCtx.lineTo(tr.x, tr.y);
+  drawCtx.lineTo(br.x, br.y);
+  drawCtx.lineTo(bl.x, bl.y);
+  drawCtx.closePath();
+
+  // glow ring
+  if (isSelected) {
+    drawCtx.save();
+    drawCtx.strokeStyle = BOX_COLOR;
+    drawCtx.lineWidth   = 3;
+    drawCtx.shadowColor = BOX_COLOR;
+    drawCtx.shadowBlur  = 8;
+    drawCtx.stroke();
+    drawCtx.shadowBlur  = 0;
+    drawCtx.restore();
+  }
+
+  // subtle fill
+  if (confirmed) {
+    drawCtx.fillStyle = 'rgba(232,197,71,0.06)';
+    drawCtx.fill();
+  }
+
+  // border
+  drawCtx.strokeStyle = BOX_COLOR;
+  drawCtx.lineWidth   = 1.5;
+  drawCtx.setLineDash(confirmed ? [] : [6, 3]);
+  drawCtx.stroke();
+  drawCtx.setLineDash([]);
+
+  // corner handles (confirmed only)
+  if (confirmed) {
+    const hs = 5;
+    corners.forEach(c => {
+      drawCtx.fillStyle = BOX_COLOR;
+      drawCtx.fillRect(c.x - hs/2, c.y - hs/2, hs, hs);
+    });
+  }
+
+  // ── number badge — top LEFT corner ───────────────────────────────────────
+  drawCtx.beginPath();
+  drawCtx.arc(tl.x, tl.y, 10, 0, Math.PI * 2);
+  drawCtx.fillStyle = BOX_COLOR;
+  drawCtx.fill();
+  drawCtx.font         = 'bold 11px IBM Plex Mono, monospace';
+  drawCtx.fillStyle    = '#0e0f11';
+  drawCtx.textAlign    = 'center';
+  drawCtx.textBaseline = 'middle';
+  drawCtx.fillText(String(num), tl.x, tl.y + 0.5);
+  drawCtx.textAlign    = 'left';
+  drawCtx.textBaseline = 'alphabetic';
+
+  // ── × button — top RIGHT corner (confirmed boxes only) ──────────────────
+  if (confirmed) {
+    const xSize = 14;
+    drawCtx.fillStyle = 'rgba(240,98,146,0.85)';
+    drawCtx.beginPath();
+    drawCtx.roundRect(tr.x - xSize/2, tr.y - xSize/2, xSize, xSize, 3);
+    drawCtx.fill();
+    const pad = 3.5;
+    drawCtx.strokeStyle = '#fff';
+    drawCtx.lineWidth   = 1.5;
+    drawCtx.beginPath();
+    drawCtx.moveTo(tr.x - xSize/2 + pad,         tr.y - xSize/2 + pad);
+    drawCtx.lineTo(tr.x + xSize/2 - pad,  tr.y + xSize/2 - pad);
+    drawCtx.moveTo(tr.x + xSize/2 - pad,  tr.y - xSize/2 + pad);
+    drawCtx.lineTo(tr.x - xSize/2 + pad,         tr.y + xSize/2 - pad);
+    drawCtx.stroke();
+  }
+
+  drawCtx.restore();
+}
+
+// ── drawPolyGroup ─────────────────────────────────────────────────────────────
+// Draws the merged outline of multiple axis-aligned leaf rects as one polygon.
+// Interior shared edges are suppressed; only the outer boundary is drawn.
+// _polyRects are in bgCanvas native-pixel space; scaled to display via zoomScale.
+function drawPolyGroup(polyRects, num, done, isSelected) {
+  if (!polyRects || !polyRects.length) return;
+  const alpha = (done && !isSelected) ? 0.45 : 1;
+
+  drawCtx.save();
+  drawCtx.globalAlpha = alpha;
+
+  // Scale rects to display space
+  const R = polyRects.map(r => ({
+    x1: r.px * zoomScale,
+    y1: r.py * zoomScale,
+    x2: (r.px + r.pw) * zoomScale,
+    y2: (r.py + r.ph) * zoomScale,
+  }));
+
+  // Collect all 4 edges per rect, keep only boundary edges (appear exactly once)
+  function eKey(ax, ay, bx, by) {
+    return ax <= bx ? `${ax.toFixed(1)},${ay.toFixed(1)}|${bx.toFixed(1)},${by.toFixed(1)}`
+                    : `${bx.toFixed(1)},${by.toFixed(1)}|${ax.toFixed(1)},${ay.toFixed(1)}`;
+  }
+  const edgeCnt = new Map(), edgeRaw = new Map();
+  for (const r of R) {
+    const segs = [
+      [r.x1,r.y1, r.x2,r.y1],
+      [r.x2,r.y1, r.x2,r.y2],
+      [r.x2,r.y2, r.x1,r.y2],
+      [r.x1,r.y2, r.x1,r.y1],
+    ];
+    for (const [ax,ay,bx,by] of segs) {
+      const k = eKey(ax,ay,bx,by);
+      edgeCnt.set(k, (edgeCnt.get(k)||0) + 1);
+      edgeRaw.set(k, [ax,ay,bx,by]);
+    }
+  }
+  const boundary = [];
+  for (const [k, c] of edgeCnt) if (c === 1) boundary.push(edgeRaw.get(k));
+
+  // Draw the boundary edges directly — no polygon-walking needed
+  // This always works regardless of shape complexity
+  drawCtx.beginPath();
+  for (const [ax,ay,bx,by] of boundary) {
+    drawCtx.moveTo(ax, ay);
+    drawCtx.lineTo(bx, by);
+  }
+
+  // Glow if selected
+  if (isSelected) {
+    drawCtx.save();
+    drawCtx.strokeStyle = BOX_COLOR;
+    drawCtx.lineWidth   = 3;
+    drawCtx.shadowColor = BOX_COLOR;
+    drawCtx.shadowBlur  = 10;
+    drawCtx.stroke();
+    drawCtx.restore();
+  }
+
+  // Fill (draw each rect individually for correct fill)
+  drawCtx.fillStyle = 'rgba(232,197,71,0.06)';
+  for (const r of R) {
+    drawCtx.fillRect(r.x1, r.y1, r.x2 - r.x1, r.y2 - r.y1);
+  }
+
+  // Outer boundary stroke — yellow, same as manual boxes
+  drawCtx.strokeStyle = BOX_COLOR;
+  drawCtx.lineWidth   = 1.5;
+  drawCtx.setLineDash([]);
+  drawCtx.beginPath();
+  for (const [ax,ay,bx,by] of boundary) {
+    drawCtx.moveTo(ax, ay);
+    drawCtx.lineTo(bx, by);
+  }
+  drawCtx.stroke();
+
+  // Number badge at top-left rect's top-left corner
+  const topLeft = R.reduce((best, r) =>
+    (r.y1 < best.y1 || (r.y1 === best.y1 && r.x1 < best.x1)) ? r : best
+  );
+  drawCtx.beginPath();
+  drawCtx.arc(topLeft.x1, topLeft.y1, 10, 0, Math.PI * 2);
+  drawCtx.fillStyle = BOX_COLOR;
+  drawCtx.fill();
+  drawCtx.font         = 'bold 11px IBM Plex Mono, monospace';
+  drawCtx.fillStyle    = '#0e0f11';
+  drawCtx.textAlign    = 'center';
+  drawCtx.textBaseline = 'middle';
+  drawCtx.fillText(String(num), topLeft.x1, topLeft.y1 + 0.5);
+  drawCtx.textAlign    = 'left';
+  drawCtx.textBaseline = 'alphabetic';
+
+  drawCtx.restore();
+}
+
+function updateSelInfo() {
+  const n = selections.length;
+  if (n > 0) {
+    selInfoEl.textContent = n + (n === 1 ? ' box' : ' boxes');
+    selInfoEl.classList.add('visible');
+  } else {
+    selInfoEl.textContent = '';
+    selInfoEl.classList.remove('visible');
+  }
+}
+
+function clearAllSelections() {
+  selections = [];
+  undoableCount = 0;
+  redrawAll();
+  updateSelInfo();
+  resetOutputPanel();
+}
+
+// ── output sync helpers ───────────────────────────────────────────────────────
+
+// Remove the output block whose data-box-index === idx
+function removeOutputBlock(idx) {
+  const body  = document.getElementById('output-body');
+  const block = body.querySelector(`.output-block[data-box-index="${idx}"]`);
+  if (block) block.remove();
+}
+
+// After deleting the box at `deletedIdx`, every block with data-box-index > deletedIdx
+// must have its index decremented by 1 and its number badge updated.
+function renumberOutputBlocks(deletedIdx) {
+  const body   = document.getElementById('output-body');
+  const blocks = [...body.querySelectorAll('.output-block[data-box-index]')];
+  blocks.forEach(block => {
+    const oldIdx = parseInt(block.dataset.boxIndex, 10);
+    if (oldIdx > deletedIdx) {
+      const newIdx = oldIdx - 1;
+      block.dataset.boxIndex = newIdx;
+      // Update ALL box-num badges inside this block (handles multi-region wrappers)
+      const badges = block.querySelectorAll('.box-num');
+      badges.forEach(badge => {
+        // Badge text may be "3", "3-1", "3-2" etc — replace the leading number
+        badge.textContent = badge.textContent.replace(
+          /^\d+/, String(newIdx + 1)
+        );
+      });
+    }
+  });
+}
+
+function resetOutputPanel() {
+  const body = document.getElementById('output-body');
+  body.innerHTML = '<pre id="output-text">① Upload an image\n② Drag to draw selection boxes\n   Ctrl+Z undoes new boxes (before Identify JP)\n   Leave empty to scan the whole image\n③ Scroll to zoom in / out as needed\n④ Click Identify JP, or a translate button</pre>';
+  document.getElementById('region-badge').classList.remove('visible');
+  document.getElementById('region-badge').textContent = '';
+}
+
+function updateRegionBadge() {
+  let total = 0;
+  selections.forEach(s => {
+    if (s.result && s.result.regions) total += s.result.regions.length;
+  });
+  const badge = document.getElementById('region-badge');
+  if (total > 0) {
+    badge.textContent = total + (total === 1 ? ' region' : ' regions');
+    badge.classList.add('visible');
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('visible');
+  }
+}
+
+// ── crop ─────────────────────────────────────────────────────────────────────
+function getCroppedBlob(sel, callback) {
+  // Map each stored original-image corner through the current rotation
+  // to get its position on bgCanvas (native rotated pixels)
+  const rotCorners = sel.corners.map(c => origToRotNative(c.x, c.y));
+  const xs = rotCorners.map(c => c.x), ys = rotCorners.map(c => c.y);
+  const cx  = Math.max(0, Math.floor(Math.min(...xs)));
+  const cy  = Math.max(0, Math.floor(Math.min(...ys)));
+  const cx2 = Math.min(bgCanvas.width,  Math.ceil(Math.max(...xs)));
+  const cy2 = Math.min(bgCanvas.height, Math.ceil(Math.max(...ys)));
+  const cw  = cx2 - cx, ch = cy2 - cy;
+  if (cw < 4 || ch < 4) { callback(null); return; }
+  const crop = document.createElement('canvas');
+  crop.width = cw; crop.height = ch;
+  crop.getContext('2d').drawImage(bgCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+  crop.toBlob(blob => callback(blob), 'image/png');
+}
+
+// ── OCR engine state & menu ──────────────────────────────────────────────────
+let _ocrEngine = 'ai';
+
+function getOcrEngine() { return _ocrEngine; }
+
+function toggleOcrMenu(e) {
+  e.stopPropagation();
+  document.getElementById('ocr-menu').classList.toggle('open');
+}
+
+function selectOcrEngine(engine, el) {
+  _ocrEngine = engine;
+  document.querySelectorAll('#ocr-menu .detect-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('ocr-menu').classList.remove('open');
+  const badge = document.getElementById('ocr-engine-badge');
+  badge.textContent = engine === 'ai' ? 'AI' : 'EasyOCR';
+}
+
+// Close OCR menu when clicking outside
+document.addEventListener('click', () => {
+  document.getElementById('ocr-menu')?.classList.remove('open');
+});
+
+function updateOcrEngineUI() {} // legacy no-op
+
+// ── Remove Translation menu ───────────────────────────────────────────────────
+let _removeTransMode = 'zh+en';
+
+function toggleRemoveTransMenu(e) {
+  e.stopPropagation();
+  document.getElementById('remove-trans-menu').classList.toggle('open');
+}
+
+function selectRemoveTransMode(mode, el) {
+  _removeTransMode = mode;
+  document.querySelectorAll('#remove-trans-menu .detect-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('remove-trans-menu').classList.remove('open');
+  const labels = { zh: '中文', en: 'English', 'zh+en': '中文 & English' };
+  document.getElementById('remove-trans-label').innerHTML =
+    mode === 'zh+en' ? '中文 &amp; English' : labels[mode];
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('remove-trans-menu')?.classList.remove('open');
+});
+
+function removeTranslation(mode) {
+  // Which label(s) to remove
+  const removeZh = mode === 'zh' || mode === 'zh+en';
+  const removeEn = mode === 'en' || mode === 'zh+en';
+
+  // Scope: selected box only, or all boxes
+  const scope = selectedIdx !== -1
+    ? document.querySelectorAll(`.output-block[data-box-index="${selectedIdx}"] .translation-row`)
+    : document.querySelectorAll('.output-block[data-box-index] .translation-row');
+
+  let removed = 0;
+  scope.forEach(row => {
+    const lbl = row.querySelector('.translation-label')?.textContent?.trim() || '';
+    if ((removeZh && lbl === '中文') || (removeEn && lbl === 'English')) {
+      row.remove();
+      removed++;
+    }
+  });
+
+  const modeLabel = mode === 'zh+en' ? '中文 & English' : mode === 'zh' ? '中文' : 'English';
+  const scopeLabel = selectedIdx !== -1 ? `box ${selectedIdx + 1}` : 'all boxes';
+  showToast(removed ? `Removed ${modeLabel} from ${scopeLabel}.` : 'Nothing to remove.');
+}
+
+// ── main action entry point ────────────────────────────────────────────────────
+// translateMode: null = JP only | 'zh' = +Chinese | 'en' = +English | 'zh+en' = +both
+//
+// Always scans ALL boxes. For each box determines what is missing and does
+// only the missing work. If nothing is selected this applies to every box.
+// If a box/text block IS selected, same logic applies — the button actions
+// are never blocked; they just skip work that is already done.
+async function runAction(translateMode) {
+  if (!originalImage) { showToast('Upload an image first.'); return; }
+
+  const apiKey    = document.getElementById('api-key').value.trim();
+  const provider  = document.getElementById('provider').value;
+  const ocrEngine = getOcrEngine();
+  // API key only required when using AI OCR engine or when translating
+  if (ocrEngine === 'ai' && !apiKey) {
+    showToast('Please enter your API key in the header (needed for AI OCR).'); return;
+  }
+
+  // No selections drawn at all → scan whole image (legacy path)
+  const isWholeImage = selections.length === 0;
+
+  const spinnerL  = document.getElementById('spinner-label');
+  const spinnerP  = document.getElementById('spinner-progress');
+  const stopBtn   = document.getElementById('btn-force-stop');
+  const btnRun    = document.getElementById('btn-run');
+  const btnArrow  = document.getElementById('btn-run-arrow');
+
+  _ocrAborted = false;
+  document.getElementById('spinner').classList.add('visible');
+  stopBtn.style.display = 'flex';   // always show Force Stop for runAction
+  if (btnRun)   btnRun.disabled   = true;
+  if (btnArrow) btnArrow.disabled = true;
+  spinnerL.textContent = 'Processing…';
+  spinnerP.textContent = '';
+
+  try {
+    if (isWholeImage) {
+      // ── whole-image fallback (no boxes drawn) ──────────────────────────────
+      spinnerL.textContent = 'Identifying Japanese text…';
+      spinnerP.textContent = 'Whole image…';
+
+      // Use rotated canvas if rotation is applied, otherwise use original file
+      const wholeBlob = rotationDeg !== 0
+        ? await new Promise(resolve => bgCanvas.toBlob(resolve, 'image/png'))
+        : originalFile;
+
+      const fd = new FormData();
+      fd.append('image', wholeBlob, 'image.png');
+      let extractUrl;
+      if (ocrEngine === 'easyocr') {
+        extractUrl = '/extract_local';
+      } else {
+        fd.append('provider', provider);
+        fd.append('api_key',  apiKey);
+        extractUrl = '/extract';
+      }
+
+      let wholeResult = { regions: [], error: null };
+      try {
+        const resp = await fetch(extractUrl, { method: 'POST', body: fd });
+        const data = await resp.json();
+        wholeResult = { regions: data.regions || [], error: data.error || null };
+      } catch { wholeResult = { regions: [], error: 'network error' }; }
+
+      // Render OCR output
+      const body = document.getElementById('output-body');
+      const placeholder = body.querySelector('#output-text');
+      if (placeholder) placeholder.remove();
+
+      if (wholeResult.error) {
+        const pre = document.createElement('pre');
+        pre.id = 'output-text';
+        pre.textContent = '⚠ Error: ' + wholeResult.error;
+        body.appendChild(pre);
+      } else if (wholeResult.regions.length === 0) {
+        const pre = document.createElement('pre');
+        pre.id = 'output-text';
+        pre.textContent = '— No Japanese text identified —';
+        body.appendChild(pre);
+      } else if (translateMode) {
+        // Render and immediately translate
+        for (let ri = 0; ri < wholeResult.regions.length; ri++) {
+          if (_ocrAborted) break;
+          const block = makeBlock(ri + 1, wholeResult.regions[ri]);
+          body.appendChild(block);
+          spinnerL.textContent = 'Translating…';
+          spinnerP.textContent = `Block ${ri + 1} / ${wholeResult.regions.length}…`;
+          const jpText = block.querySelector('.output-block-text')?.textContent?.trim();
+          if (jpText && jpText !== '(empty)') {
+            await translateAndAppend(jpText, translateMode, provider, apiKey, block);
+          }
+        }
+      } else {
+        wholeResult.regions.forEach((region, ri) => {
+          body.appendChild(makeBlock(ri + 1, region));
+        });
+      }
+
+      undoableCount = 0;
+      redrawAll();
+      updateRegionBadge();
+      return;
+    }
+
+    // ── Single box selected: only process that box ───────────────────────────
+    if (selectedIdx !== -1 && selections[selectedIdx]) {
+      await processBox(selectedIdx, translateMode, provider, apiKey, selections.length, ocrEngine);
+      undoableCount = 0;
+      redrawAll();
+      updateRegionBadge();
+      return;
+    }
+
+    // ── Box mode: scan ALL selections ─────────────────────────────────────────
+    const total = selections.length;
+    let anyWork = false;
+
+    for (let idx = 0; idx < selections.length; idx++) {
+      if (_ocrAborted) { showToast('Stopped.'); break; }
+      const did = await processBox(idx, translateMode, provider, apiKey, total, ocrEngine);
+      if (did) anyWork = true;
+    }
+
+    if (!anyWork && !_ocrAborted) {
+      showToast('All boxes already have the requested content.');
+    }
+
+    undoableCount = 0;
+    redrawAll();
+    updateRegionBadge();
+
+  } finally {
+    document.getElementById('spinner').classList.remove('visible');
+    stopBtn.style.display = 'none';
+    if (btnRun)   btnRun.disabled   = false;
+    if (btnArrow) btnArrow.disabled = false;
+    _ocrAborted = false;
+  }
+}
+
+// ── process one box: OCR if needed, then add missing translations ─────────────
+// Returns true if any work was done.
+async function processBox(idx, translateMode, provider, apiKey, total, ocrEngine) {
+  ocrEngine = ocrEngine || 'ai';
+  const sel      = selections[idx];
+  const spinnerL = document.getElementById('spinner-label');
+  const spinnerP = document.getElementById('spinner-progress');
+  let   didWork  = false;
+
+  // Ensure per-engine result store exists
+  if (!sel.resultByEngine) sel.resultByEngine = {};
+
+  // --- Step 1: run OCR with this engine if not done yet for this engine ---
+  const needsOcr = !sel.resultByEngine[ocrEngine];
+  if (needsOcr) {
+    didWork = true;
+    spinnerL.textContent = 'Identifying Japanese text…';
+    spinnerP.textContent = `Box ${idx + 1} / ${total} (${ocrEngine === 'ai' ? 'AI' : 'EasyOCR'})…`;
+
+    const blob = await new Promise(resolve => getCroppedBlob(sel, resolve));
+    if (!blob) {
+      sel.resultByEngine[ocrEngine] = { regions: [], error: 'crop failed' };
+    } else {
+      const fd = new FormData();
+      fd.append('image', blob, 'region.png');
+      let extractUrl;
+      if (ocrEngine === 'easyocr') {
+        extractUrl = '/extract_local';
+      } else {
+        fd.append('provider', provider);
+        fd.append('api_key',  apiKey);
+        extractUrl = '/extract';
+      }
+      try {
+        const resp = await fetch(extractUrl, { method: 'POST', body: fd });
+        const data = await resp.json();
+        sel.resultByEngine[ocrEngine] = { regions: data.regions || [], error: data.error || null };
+      } catch {
+        sel.resultByEngine[ocrEngine] = { regions: [], error: 'network error' };
+      }
+    }
+    // Keep sel.result pointing to latest for legacy compatibility
+    sel.result = sel.resultByEngine[ocrEngine];
+    sel._ocrEngine = ocrEngine;
+    // Re-render the whole block to show all engines side by side
+    renderOutputBlock(idx);
+  }
+
+  // --- Step 2: translations (only if translateMode set) ---
+  if (!translateMode) return didWork;
+
+  const body  = document.getElementById('output-body');
+  const block = body.querySelector(`.output-block[data-box-index="${idx}"]`);
+  if (!block) return didWork;
+
+  // Translate every engine section that has text
+  const allEngines = Object.keys(sel.resultByEngine || {});
+  for (const eng of allEngines) {
+    const engResult = sel.resultByEngine[eng];
+    if (!engResult?.regions?.length) continue;
+
+    const engineSection = block.querySelector(`.engine-section[data-engine="${eng}"]`);
+    if (!engineSection) continue;
+
+    const existingLangs = new Set(
+      [...engineSection.querySelectorAll('.translation-label')].map(el => el.textContent.trim())
+    );
+    const wantsZh   = translateMode === 'zh'    || translateMode === 'zh+en';
+    const wantsEn   = translateMode === 'en'    || translateMode === 'zh+en';
+    const missingZh = wantsZh && !existingLangs.has('中文');
+    const missingEn = wantsEn && !existingLangs.has('English');
+    if (!missingZh && !missingEn) continue;
+
+    didWork = true;
+    spinnerL.textContent = 'Translating…';
+    spinnerP.textContent = `Box ${idx + 1} / ${total} (${eng === 'ai' ? 'AI' : 'EasyOCR'})…`;
+
+    const effectiveMode = missingZh && missingEn ? 'zh+en' : missingZh ? 'zh' : 'en';
+    const textEls = [...engineSection.querySelectorAll('.output-block-text')];
+    for (const textEl of textEls) {
+      const jpText = textEl.textContent.trim();
+      if (!jpText || jpText === '(empty)') continue;
+      await translateAndAppendMissing(jpText, effectiveMode, provider, apiKey, engineSection, existingLangs);
+    }
+  }
+
+  return didWork;
+}
+
+// ── like translateAndAppend but only adds langs NOT already present ────────────
+async function translateAndAppendMissing(jpText, mode, provider, apiKey, blockEl, existingLangs) {
+  const langs = mode === 'zh+en' ? ['zh', 'en'] : [mode];
+
+  for (const lang of langs) {
+    const label    = lang === 'zh' ? '中文' : 'English';
+    const langName = lang === 'zh' ? 'Simplified Chinese' : 'English';
+
+    if (existingLangs && existingLangs.has(label)) continue;  // already there
+
+    const row = document.createElement('div');
+    row.className = 'translation-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'translation-label';
+    lbl.textContent = label;
+    const pending = document.createElement('div');
+    pending.className = 'translation-pending';
+    pending.textContent = 'translating…';
+    row.appendChild(lbl);
+    row.appendChild(pending);
+    blockEl.appendChild(row);
+
+    try {
+      const translated = await callTranslate(jpText, langName, provider, apiKey);
+      pending.className = 'translation-text';
+      pending.textContent = translated;
+    } catch {
+      // Remove the row entirely — treat as not yet translated so next attempt retries
+      row.remove();
+    }
+  }
+}
+
+// ── translate text and append rows to a block ──────────────────────────────────
+async function translateAndAppend(jpText, mode, provider, apiKey, blockEl) {
+  // Remove any existing translation rows on this block element
+  blockEl.querySelectorAll('.translation-row').forEach(el => el.remove());
+
+  const langs = mode === 'zh+en' ? ['zh', 'en'] : [mode];
+
+  for (const lang of langs) {
+    const label     = lang === 'zh' ? '中文' : 'English';
+    const langName  = lang === 'zh' ? 'Simplified Chinese' : 'English';
+
+    // Insert pending placeholder
+    const row = document.createElement('div');
+    row.className = 'translation-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'translation-label';
+    lbl.textContent = label;
+    const pending = document.createElement('div');
+    pending.className = 'translation-pending';
+    pending.textContent = 'translating…';
+    row.appendChild(lbl);
+    row.appendChild(pending);
+    blockEl.appendChild(row);
+
+    try {
+      const translated = await callTranslate(jpText, langName, provider, apiKey);
+      pending.className = 'translation-text';
+      pending.textContent = translated;
+    } catch (err) {
+      row.remove();
+    }
+  }
+}
+
+// ── call AI for translation ────────────────────────────────────────────────────
+async function callTranslate(text, targetLang, provider, apiKey) {
+  const prompt = `Translate the following Japanese text into ${targetLang}. Output ONLY the translation, no explanations, no romanization, no original text.\n\n${text}`;
+
+  if (provider === 'gpt') {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    return data.choices[0].message.content.trim();
+  } else {
+    // Gemini
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0 }
+        })
+      }
+    );
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    return data.candidates[0].content.parts[0].text.trim();
+  }
+}
+
+// ── output rendering — append one box's results ───────────────────────────────
+function appendOutputBlock(idx, result, isWholeImage) {
+  const body = document.getElementById('output-body');
+
+  // Remove placeholder if present
+  const placeholder = body.querySelector('#output-text');
+  if (placeholder) placeholder.remove();
+
+  if (isWholeImage) {
+    // whole-image: render each region as its own numbered block
+    if (result.error) {
+      body.appendChild(makeErrorBlock('!', result.error));
+      return;
+    }
+    if (result.regions.length === 0) {
+      const pre = document.createElement('pre');
+      pre.id = 'output-text';
+      pre.textContent = '— No Japanese text identified —';
+      body.appendChild(pre);
+      return;
+    }
+    result.regions.forEach((region, ri) => {
+      body.appendChild(makeBlock(ri + 1, region, ri));
+    });
+    return;
+  }
+
+  // Box mode: delegate to renderOutputBlock which handles multi-engine display
+  renderOutputBlock(idx);
+}
+
+// ── Render (or re-render) the output block for box idx, showing all engine results ──
+function renderOutputBlock(idx) {
+  const body = document.getElementById('output-body');
+  const placeholder = body.querySelector('#output-text');
+  if (placeholder) placeholder.remove();
+
+  const sel = selections[idx];
+  const engineResults = sel.resultByEngine || {};
+  const engines = Object.keys(engineResults);
+
+  const existing = body.querySelector(`.output-block[data-box-index="${idx}"]`);
+
+  // If block already exists, just append the newest engine section (don't blow away translations)
+  if (existing) {
+    const latestEngine = sel._ocrEngine;
+    if (latestEngine && !existing.querySelector(`.engine-section[data-engine="${latestEngine}"]`)) {
+      existing.appendChild(makeEngineSection(latestEngine, engineResults[latestEngine]));
+    }
+    return;
+  }
+
+  // Build fresh wrapper
+  const wrapper = document.createElement('div');
+  wrapper.className = 'output-block';
+  wrapper.dataset.boxIndex = idx;
+
+  // Header row (box number + close button)
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(idx + 1);
+  header.appendChild(numBadge);
+  header.appendChild(makeBlockCloseBtn());
+  wrapper.appendChild(header);
+
+  if (engines.length === 0) {
+    const emptySpan = document.createElement('span');
+    emptySpan.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--font-mono);padding-left:28px;';
+    emptySpan.textContent = 'no results yet';
+    wrapper.appendChild(emptySpan);
+  } else {
+    engines.forEach(engine => {
+      wrapper.appendChild(makeEngineSection(engine, engineResults[engine]));
+    });
+  }
+
+  wrapper.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+
+  insertBlockInOrder(body, wrapper, idx);
+}
+
+// ── Build one engine's result section (no translations — those are appended separately) ──
+function makeEngineSection(engine, result) {
+  const section = document.createElement('div');
+  section.className = 'engine-section';
+  section.dataset.engine = engine;
+
+  // Engine label row
+  const labelRow = document.createElement('div');
+  labelRow.className = 'engine-label-row';
+  const tag = document.createElement('span');
+  tag.className = `engine-tag ${engine}`;
+  tag.textContent = engine === 'ai' ? 'AI (API)' : 'EasyOCR';
+  labelRow.appendChild(tag);
+
+  // Close button — removes just this engine section
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'output-block-close';
+  closeBtn.title = `Remove ${engine === 'ai' ? 'AI' : 'EasyOCR'} result`;
+  closeBtn.style.cssText = 'margin-left:auto;';
+  closeBtn.innerHTML = `<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8">
+    <line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/>
+  </svg>`;
+  closeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    // Find the parent block to get box index
+    const block = section.closest('.output-block[data-box-index]');
+    const idx   = block ? parseInt(block.dataset.boxIndex, 10) : NaN;
+    // Remove from data
+    if (!isNaN(idx) && selections[idx]?.resultByEngine) {
+      delete selections[idx].resultByEngine[engine];
+      // Update sel.result to another engine's result, or null if none left
+      const remaining = Object.keys(selections[idx].resultByEngine);
+      selections[idx].result      = remaining.length ? selections[idx].resultByEngine[remaining[0]] : null;
+      selections[idx]._ocrEngine  = remaining.length ? remaining[remaining.length - 1] : null;
+    }
+    // Remove from DOM
+    section.remove();
+    // If the block is now empty of engine sections, show placeholder
+    if (block && !block.querySelector('.engine-section')) {
+      const emptySpan = document.createElement('span');
+      emptySpan.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--font-mono);padding-left:28px;display:block;padding-bottom:6px;';
+      emptySpan.textContent = 'no results';
+      block.appendChild(emptySpan);
+    }
+    redrawAll();
+    updateRegionBadge();
+  });
+  labelRow.appendChild(closeBtn);
+  section.appendChild(labelRow);
+
+  if (result.error) {
+    const errSpan = document.createElement('span');
+    errSpan.style.cssText = 'font-size:11px;color:var(--danger);font-family:var(--font-mono);padding-left:28px;display:block;';
+    errSpan.textContent = '⚠ ' + result.error;
+    section.appendChild(errSpan);
+  } else if (!result.regions || result.regions.length === 0) {
+    const emptySpan = document.createElement('span');
+    emptySpan.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--font-mono);padding-left:28px;display:block;';
+    emptySpan.textContent = 'no Japanese text found';
+    section.appendChild(emptySpan);
+  } else {
+    result.regions.forEach((region, ri) => {
+      const orient = (region.orientation || '?').charAt(0).toUpperCase();
+      const text   = (region.text || '').trim();
+
+      // Orient tag — always inline in label row (first region) or as a sub-label
+      if (ri === 0) {
+        const orientTag = document.createElement('span');
+        orientTag.className = 'orient-tag';
+        orientTag.textContent = `(${orient})`;
+        labelRow.appendChild(orientTag);
+      } else {
+        const subLabel = document.createElement('div');
+        subLabel.className = 'engine-label-row';
+        subLabel.style.marginTop = '6px';
+        const subOrient = document.createElement('span');
+        subOrient.className = 'orient-tag';
+        subOrient.textContent = `${ri + 1} (${orient})`;
+        subLabel.appendChild(subOrient);
+        section.appendChild(subLabel);
+      }
+
+      const textEl = document.createElement('div');
+      textEl.className = 'output-block-text';
+      textEl.textContent = text || '(empty)';
+      section.appendChild(textEl);
+    });
+  }
+
+  return section;
+}
+
+// Insert block so output blocks are always in box-index order
+function insertBlockInOrder(body, block, idx) {
+  const existing = [...body.querySelectorAll('.output-block[data-box-index]')];
+  const after = existing.find(el => parseInt(el.dataset.boxIndex, 10) > idx);
+  if (after) body.insertBefore(block, after);
+  else body.appendChild(block);
+}
+
+function makeBlock(label, region) {
+  const orient = (region.orientation || '?').charAt(0).toUpperCase();
+  const text   = (region.text || '').trim();
+
+  const div = document.createElement('div');
+  div.className = 'output-block';
+
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+
+  const orientTag = document.createElement('span');
+  orientTag.className = 'orient-tag';
+  orientTag.textContent = '(' + orient + ')';
+
+  // close button (only for top-level blocks that have a data-box-index)
+  const closeBtn = makeBlockCloseBtn();
+
+  header.appendChild(numBadge);
+  header.appendChild(orientTag);
+  header.appendChild(closeBtn);
+
+  const textEl = document.createElement('div');
+  textEl.className = 'output-block-text';
+  textEl.textContent = text || '(empty)';
+
+  div.appendChild(header);
+  div.appendChild(textEl);
+
+  // click to select — always find the nearest ancestor with data-box-index
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const container = div.closest('[data-box-index]');
+    if (!container) return;
+    const idx = parseInt(container.dataset.boxIndex, 10);
+    if (isNaN(idx) || idx < 0) return;
+    // Toggle: select if not selected, deselect if already selected.
+    // Works for both single-region blocks and sub-blocks inside a multi-region wrapper.
+    setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+
+  return div;
+}
+
+function makeBlockCloseBtn() {
+  const btn = document.createElement('button');
+  btn.className = 'output-block-close';
+  btn.title = 'Close this box';
+  btn.innerHTML = `<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8">
+    <line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/>
+  </svg>`;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const block = btn.closest('.output-block[data-box-index]');
+    if (!block) return;
+    const idx = parseInt(block.dataset.boxIndex, 10);
+    if (!isNaN(idx)) deleteBox(idx);
+  });
+  return btn;
+}
+
+function makeErrorBlock(label, error) {
+  const div = document.createElement('div');
+  div.className = 'output-block';
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+  header.appendChild(numBadge);
+  const errSpan = document.createElement('span');
+  errSpan.style.cssText = 'font-size:11px;color:var(--danger);font-family:var(--font-mono)';
+  errSpan.textContent = '⚠ ' + error;
+  header.appendChild(errSpan);
+  header.appendChild(makeBlockCloseBtn());
+  div.appendChild(header);
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const idx = parseInt(div.dataset.boxIndex ?? '-99', 10);
+    if (idx >= 0) setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+  return div;
+}
+
+function makeEmptyBlock(label) {
+  const div = document.createElement('div');
+  div.className = 'output-block';
+  const header = document.createElement('div');
+  header.className = 'output-block-header';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'box-num';
+  numBadge.textContent = String(label);
+  header.appendChild(numBadge);
+  const emptySpan = document.createElement('span');
+  emptySpan.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--font-mono)';
+  emptySpan.textContent = 'no Japanese text found';
+  header.appendChild(emptySpan);
+  header.appendChild(makeBlockCloseBtn());
+  div.appendChild(header);
+  div.addEventListener('click', e => {
+    if (e.target.closest('.output-block-close')) return;
+    const idx = parseInt(div.dataset.boxIndex ?? '-99', 10);
+    if (idx >= 0) setSelectedIdx(selectedIdx === idx ? -1 : idx);
+  });
+  return div;
+}
+
+// ── copy ─────────────────────────────────────────────────────────────────────
+async function copyText() {
+  const blocks = document.querySelectorAll('.output-block[data-box-index]');
+  if (!blocks.length) { showToast('No extracted text to save.'); return; }
+
+  const lines = [];
+  blocks.forEach(block => {
+    const num = block.querySelector('.box-num')?.textContent || '?';
+    lines.push(`[Box ${num}]`);
+
+    const sections = block.querySelectorAll('.engine-section');
+    if (sections.length) {
+      sections.forEach(section => {
+        const engine   = section.dataset.engine || '';
+        const engLabel = engine === 'ai' ? 'AI (API)' : engine === 'easyocr' ? 'EasyOCR' : engine;
+        const textEls  = section.querySelectorAll('.output-block-text');
+        textEls.forEach(el => {
+          const jp = el.textContent.trim();
+          if (jp && jp !== '(empty)') lines.push(`[${engLabel}] ${jp}`);
+        });
+        section.querySelectorAll('.translation-row').forEach(row => {
+          const lbl = row.querySelector('.translation-label')?.textContent || '';
+          const tr  = row.querySelector('.translation-text')?.textContent  || '';
+          if (tr) lines.push(`  [${lbl}] ${tr}`);
+        });
+      });
+    } else {
+      const text = block.querySelector('.output-block-text')?.textContent?.trim() || '';
+      if (text) lines.push(text);
+      block.querySelectorAll('.translation-row').forEach(row => {
+        const lbl = row.querySelector('.translation-label')?.textContent || '';
+        const tr  = row.querySelector('.translation-text')?.textContent  || '';
+        if (tr) lines.push(`  [${lbl}] ${tr}`);
+      });
+    }
+
+    lines.push('');
+  });
+
+  const content = lines.join('\n').trim() + '\n';
+  const baseName = originalFile ? originalFile.name.replace(/\.[^.]+$/, '') : 'image';
+  const suggestedName = baseName + '_extracted_text.txt';
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+
+  // File System Access API — folder + filename picker (Chrome/Edge)
+  if (window.showSaveFilePicker) {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'Text File', accept: { 'text/plain': ['.txt'] } }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast('Text saved!');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: regular download
+  const link = document.createElement('a');
+  link.download = suggestedName;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  showToast('Text file downloaded.');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IDENTIFY TEXT REGION
+//
+// runDetect() dispatches to the chosen method:
+//   easyocr / east / mser  →  POST /detect?method=X  (server does CV work)
+//   ai                     →  AI quadtree (client-side, uses API key)
+//
+// In all cases the result is a list of {px,py,pw,ph} rects in bgCanvas native
+// pixel space.  Each rect is converted to a selection identical to a manually
+// dragged box (corners in original-image coords, no _polyRects), so it uses
+// drawBoxPoly and looks exactly the same as a hand-drawn box.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _scanAborted = false;
+let _ocrAborted  = false;
+
+function forceStopScan() {
+  _scanAborted = true;
+  _ocrAborted  = true;
+  showToast('Stopping after current tile\u2026');
+}
+
+// ── Convert a server-returned {px,py,pw,ph} rect (original image pixel space)
+//    into a selection entry identical to a manually dragged box ──────────────
+function rectToSelection(px, py, pw, ph) {
+  // Corners in original image pixel space — exactly what manual drag stores
+  const tl = { x: px,      y: py      };
+  const tr = { x: px + pw, y: py      };
+  const br = { x: px + pw, y: py + ph };
+  const bl = { x: px,      y: py + ph };
+  return {
+    corners: [tl, tr, br, bl],
+    result:  null,
+    _autoRot: { px, py, pw, ph },
+  };
+}
+
+async function runDetect() {
+  if (!originalImage) { showToast('Upload an image first.'); return; }
+
+  const method   = _detectMethod;
+  const provider = document.getElementById('provider').value;
+  const apiKey   = document.getElementById('api-key').value.trim();
+
+  if (method === 'ai' && !apiKey) {
+    showToast('This method requires an API key.'); return;
+  }
+
+  const btn         = document.getElementById('btn-detect');
+  const arrowBtn    = document.getElementById('btn-detect-arrow');
+  const spinnerEl   = document.getElementById('spinner');
+  const spinnerL    = document.getElementById('spinner-label');
+  const spinnerP    = document.getElementById('spinner-progress');
+  const stopBtn     = document.getElementById('btn-force-stop');
+  const gridOverlay = document.getElementById('grid-overlay');
+
+  _scanAborted = false;
+  _ocrAborted  = false;
+  btn.disabled = arrowBtn.disabled = true;
+  spinnerEl.classList.add('visible');
+  stopBtn.style.display = method === 'ai' ? 'flex' : 'none';
+
+  try {
+    let leafRects = [];
+    const nW = bgCanvas.width, nH = bgCanvas.height;
+
+    if (method === 'ai') {
+      leafRects = await _aiQuadtree(provider, apiKey, nW, nH, spinnerL, spinnerP, gridOverlay);
+      // Merge adjacent leaf rects into single bounding boxes
+      if (leafRects.length > 0) {
+        const groups = groupAdjacentRects(leafRects, nW, nH);
+        leafRects = groups.map(g => g.bbox);
+        spinnerP.textContent = `Merged into ${leafRects.length} region${leafRects.length !== 1 ? 's' : ''}`;
+      }
+
+    } else {
+      const methodNames = { easyocr:'EasyOCR', east:'EAST + OpenCV', mser:'MSER' };
+      spinnerL.textContent = `Detecting regions — ${methodNames[method] || method}…`;
+      spinnerP.textContent = 'Sending image to server…';
+
+      // ── Send the ORIGINAL file directly — no canvas re-encoding ────────────
+      // If there's a rotation we need to send the rotated canvas instead,
+      // because the server has no knowledge of our rotation state.
+      let imageBlob;
+      if (rotationDeg === 0 && originalFile) {
+        // Perfect: send the file as-is, zero quality loss
+        imageBlob = originalFile;
+      } else {
+        // Rotation applied: export bgCanvas as PNG (lossless) at native resolution
+        imageBlob = await new Promise(resolve =>
+          bgCanvas.toBlob(resolve, 'image/png')
+        );
+      }
+
+      const fd = new FormData();
+      fd.append('image',  imageBlob, 'image.png');
+      fd.append('method', method);
+
+      let data;
+      try {
+        const resp = await fetch('/detect', { method: 'POST', body: fd });
+        data = await resp.json();
+      } catch (e) {
+        throw new Error('Cannot reach /detect — is server.py running? ' + e.message);
+      }
+      if (data.error) throw new Error(data.error);
+      if (data.method && data.method !== method) showToast('Fell back to ' + data.method);
+
+      leafRects = (data.regions || []).map(r => ({ px: r.px, py: r.py, pw: r.pw, ph: r.ph }));
+      spinnerP.textContent = `${leafRects.length} regions detected`;
+
+      _paintPreview(leafRects, nW, nH, gridOverlay);
+      await sleep(300);
+    }
+
+    if (!leafRects.length) {
+      showToast('No text regions detected.'); return;
+    }
+
+    // Draw boxes only — same style as manual drag
+    selections = [];
+    undoableCount = 0;
+    for (const r of leafRects) selections.push(rectToSelection(r.px, r.py, r.pw, r.ph));
+
+    gridOverlay.style.display = 'none';
+    redrawAll();
+    updateSelInfo();
+    updateRegionBadge();
+    showToast(`${leafRects.length} region${leafRects.length !== 1 ? 's' : ''} detected.`);
+
+  } catch (err) {
+    showToast('Detection failed: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = arrowBtn.disabled = false;
+    spinnerEl.classList.remove('visible');
+    stopBtn.style.display = 'none';
+    if (gridOverlay) gridOverlay.style.display = 'none';
+    _scanAborted = false;
+  }
+}
+
+// ── Paint a quick yellow preview of detected rects on the grid overlay ────────
+function _paintPreview(rects, nW, nH, gridOverlay) {
+  const dispW  = parseFloat(bgCanvas.style.width)  || nW;
+  const dispH  = parseFloat(bgCanvas.style.height) || nH;
+  const scaleX = dispW / nW, scaleY = dispH / nH;
+  gridOverlay.width  = dispW; gridOverlay.height = dispH;
+  gridOverlay.style.width  = dispW + 'px';
+  gridOverlay.style.height = dispH + 'px';
+  gridOverlay.style.display = 'block';
+  const ctx = gridOverlay.getContext('2d');
+  ctx.clearRect(0, 0, dispW, dispH);
+  for (const r of rects) {
+    ctx.fillStyle   = 'rgba(232,197,71,0.15)';
+    ctx.strokeStyle = 'rgba(232,197,71,0.9)';
+    ctx.lineWidth   = 1.5;
+    ctx.fillRect  (r.px * scaleX,       r.py * scaleY,       r.pw * scaleX, r.ph * scaleY);
+    ctx.strokeRect(r.px * scaleX + 0.5, r.py * scaleY + 0.5, r.pw * scaleX - 1, r.ph * scaleY - 1);
+  }
+}
+
+// ── AI quadtree detection (uses API key, recursive) ───────────────────────────
+async function _aiQuadtree(provider, apiKey, nW, nH, spinnerL, spinnerP, gridOverlay) {
+  const n      = Math.max(1, Math.min(6, parseInt(document.getElementById('autoscan-n')?.value || '4', 10) || 4));
+  const total  = Math.pow(2, n);
+  const aspect = nW / nH;
+  const cols0  = Math.max(1, Math.round(Math.sqrt(total * aspect)));
+  const rows0  = Math.max(1, Math.round(total / cols0));
+  const tileW  = nW / cols0, tileH = nH / rows0;
+
+  let overlayRects = [];
+
+  function repaintOverlay() {
+    const dispW  = parseFloat(bgCanvas.style.width)  || nW;
+    const dispH  = parseFloat(bgCanvas.style.height) || nH;
+    const scaleX = dispW / nW, scaleY = dispH / nH;
+    gridOverlay.width  = dispW; gridOverlay.height = dispH;
+    gridOverlay.style.width  = dispW + 'px'; gridOverlay.style.height = dispH + 'px';
+    const ctx = gridOverlay.getContext('2d');
+    ctx.clearRect(0, 0, dispW, dispH);
+    for (const r of overlayRects) {
+      const x = r.px*scaleX, y = r.py*scaleY, w = r.pw*scaleX, h = r.ph*scaleY;
+      const fs = Math.max(9, Math.min(16, Math.min(w,h)*0.28));
+      if      (r.state==='scanning') { ctx.fillStyle='rgba(79,195,247,0.20)'; ctx.strokeStyle='rgba(79,195,247,0.95)'; ctx.lineWidth=2; }
+      else if (r.state==='hit')      { ctx.fillStyle='rgba(232,197,71,0.15)'; ctx.strokeStyle='rgba(232,197,71,0.65)'; ctx.lineWidth=1; }
+      else if (r.state==='leaf')     { ctx.fillStyle='rgba(232,197,71,0.28)'; ctx.strokeStyle='rgba(232,197,71,1.0)';  ctx.lineWidth=2; }
+      else                           { ctx.fillStyle='rgba(0,0,0,0)';         ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=0.5; }
+      ctx.fillRect(x,y,w,h); ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font=`bold ${fs}px IBM Plex Mono,monospace`;
+      if      (r.state==='scanning') { ctx.fillStyle='rgba(79,195,247,0.85)'; ctx.fillText('\u2026',x+w/2,y+h/2); }
+      else if (r.state==='hit')      { ctx.fillStyle='rgba(232,197,71,0.75)'; ctx.fillText('\u2713',x+w/2,y+h/2); }
+      else if (r.state==='leaf')     { ctx.fillStyle='rgba(232,197,71,1.0)';  ctx.fillText('\u25a0',x+w/2,y+h/2); }
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    }
+  }
+
+  const detectPrompt =
+`Does this image contain any Japanese text (kanji, hiragana, katakana, furigana)?
+Answer ONLY with a single JSON object: {"has_japanese": true} or {"has_japanese": false}
+No explanation, no markdown.`;
+
+  async function tileHasJP(px, py, pw, ph) {
+    const b64 = await cropCanvasToBase64(bgCanvas, px, py, pw, ph);
+    try { const raw = await callVisionJSON(detectPrompt, b64, provider, apiKey);
+          return !!JSON.parse(raw).has_japanese; }
+    catch { return false; }
+  }
+
+  let totalCalls = 0;
+  async function drillDown(px, py, pw, ph, depth) {
+    if (_scanAborted) return [];
+    if (pw < 12 || ph < 12) return [{px,py,pw,ph}];
+    const hw = Math.floor(pw/2), hh = Math.floor(ph/2);
+    const daughters = [
+      {px,       py,       pw:hw,    ph:hh     },
+      {px:px+hw, py,       pw:pw-hw, ph:hh     },
+      {px,       py:py+hh, pw:hw,    ph:ph-hh  },
+      {px:px+hw, py:py+hh, pw:pw-hw, ph:ph-hh  },
+    ];
+    const hits = [], misses = [];
+    for (const d of daughters) {
+      if (_scanAborted) break;
+      totalCalls++;
+      spinnerP.textContent = `Depth ${depth+1} · call ${totalCalls} · ${Math.round(d.pw)}×${Math.round(d.ph)}px`;
+      const rec = {...d, state:'scanning'}; overlayRects.push(rec); repaintOverlay(); await sleep(25);
+      const has = await tileHasJP(d.px, d.py, d.pw, d.ph);
+      rec.state = has ? 'hit' : 'miss'; repaintOverlay();
+      (has ? hits : misses).push({d, rec});
+    }
+    if (hits.length === 0) {
+      const m = overlayRects.find(r=>r.px===px&&r.py===py&&r.pw===pw&&r.ph===ph&&r.state==='hit');
+      if (m) { m.state='leaf'; repaintOverlay(); }
+      return [{px,py,pw,ph}];
+    }
+    if (misses.length === 0) {
+      const m = overlayRects.find(r=>r.px===px&&r.py===py&&r.pw===pw&&r.ph===ph&&r.state==='hit');
+      if (m) { m.state='leaf'; repaintOverlay(); }
+      hits.forEach(({rec})=>{ rec.state='hit'; }); repaintOverlay();
+      return [{px,py,pw,ph}];
+    }
+    if (hits.length <= misses.length) {
+      hits.forEach(({rec})=>{ rec.state='leaf'; }); repaintOverlay();
+      return hits.map(({d})=>d);
+    }
+    const results = [];
+    for (const {d} of hits) {
+      if (_scanAborted) { results.push(d); continue; }
+      results.push(...await drillDown(d.px, d.py, d.pw, d.ph, depth+1));
+    }
+    return results;
+  }
+
+  gridOverlay.style.display = 'block';
+  spinnerL.textContent = `AI quadtree (${cols0}×${rows0} tiles, n=${n})…`;
+  let leafRects = [];
+  for (let r = 0; r < rows0 && !_scanAborted; r++) {
+    for (let c = 0; c < cols0 && !_scanAborted; c++) {
+      const px = Math.round(c*tileW), py = Math.round(r*tileH);
+      const pw = Math.round((c+1)*tileW)-px, ph = Math.round((r+1)*tileH)-py;
+      totalCalls++;
+      spinnerP.textContent = `Initial tile ${r*cols0+c+1} / ${cols0*rows0}`;
+      const rec = {px,py,pw,ph,state:'scanning'}; overlayRects.push(rec); repaintOverlay(); await sleep(25);
+      const hit = await tileHasJP(px,py,pw,ph);
+      rec.state = hit ? 'hit' : 'miss'; repaintOverlay();
+      if (hit) {
+        const leaves = await drillDown(px,py,pw,ph,0);
+        leaves.forEach(l => {
+          const ex = overlayRects.find(r2=>r2.px===l.px&&r2.py===l.py&&r2.pw===l.pw&&r2.ph===l.ph);
+          if (ex) ex.state='leaf'; else overlayRects.push({...l,state:'leaf'});
+        });
+        repaintOverlay();
+        leafRects.push(...leaves);
+      }
+    }
+  }
+  await sleep(350);
+  return leafRects;
+}
+
+// ── Group adjacent JP-confirmed leaf rects into connected components ──────────
+// Returns array of { rects, bbox }.  Padding is used ONLY for the adjacency test;
+// the original unpadded rects are stored so drawn outlines never intrude neighbours.
+function groupAdjacentRects(rects, nativeW, nativeH) {
+  if (!rects.length) return [];
+
+  // Compute a padded version of each rect ONLY for adjacency testing.
+  // The original rects are kept for drawing so outlines never intrude neighbours.
+  const padded = rects.map(r => {
+    const PAD = Math.round(Math.min(r.pw, r.ph) * 0.06);
+    return {
+      px: Math.max(0,       r.px - PAD),
+      py: Math.max(0,       r.py - PAD),
+      pw: Math.min(nativeW - Math.max(0, r.px - PAD), r.pw + PAD * 2),
+      ph: Math.min(nativeH - Math.max(0, r.py - PAD), r.ph + PAD * 2),
+    };
+  });
+
+  // Precompute area of each original rect for size-aware gap
+  const area = rects.map(r => r.pw * r.ph);
+
+  // Union-Find over original rect indices
+  const parent = rects.map((_, i) => i);
+  function find(i) { return parent[i] === i ? i : (parent[i] = find(parent[i])); }
+  function union(i, j) { parent[find(i)] = find(j); }
+
+  // Gap tolerance: larger for small-next-to-large pairs so sub-blocks
+  // snap to their neighbour, but only 3px for same-size pairs.
+  const BASE_GAP = 3;
+  function gapFor(i, j) {
+    const ai = area[i], aj = area[j];
+    const larger  = Math.max(ai, aj);
+    const smaller = Math.min(ai, aj);
+    if (larger === 0) return BASE_GAP;
+    if (smaller / larger < 0.5) {
+      const smallIdx = ai <= aj ? i : j;
+      const sr = rects[smallIdx];
+      return Math.max(BASE_GAP, Math.min(sr.pw, sr.ph) * 0.5);
+    }
+    return BASE_GAP;
+  }
+
+  // Test adjacency using the padded rects (so slight gaps don't break groups)
+  for (let i = 0; i < padded.length; i++) {
+    for (let j = i + 1; j < padded.length; j++) {
+      const a = padded[i], b = padded[j];
+      const gap = gapFor(i, j);
+      if (a.px <= b.px + b.pw + gap && a.px + a.pw >= b.px - gap &&
+          a.py <= b.py + b.ph + gap && a.py + a.ph >= b.py - gap) {
+        union(i, j);
+      }
+    }
+  }
+
+  // Collect groups — store ORIGINAL (unpadded) rects for drawing
+  const groups = new Map();
+  rects.forEach((r, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(r);          // ← original rect, not padded
+  });
+
+  // For each group compute bbox from original rects and sort top-left first
+  const result = [];
+  for (const grRects of groups.values()) {
+    const minX = Math.min(...grRects.map(r => r.px));
+    const minY = Math.min(...grRects.map(r => r.py));
+    const maxX = Math.max(...grRects.map(r => r.px + r.pw));
+    const maxY = Math.max(...grRects.map(r => r.py + r.ph));
+    result.push({
+      rects: grRects,
+      bbox: { px: minX, py: minY, pw: maxX - minX, ph: maxY - minY }
+    });
+  }
+
+  // Sort groups top-to-bottom, left-to-right by bbox
+  result.sort((a, b) =>
+    a.bbox.py !== b.bbox.py ? a.bbox.py - b.bbox.py : a.bbox.px - b.bbox.px
+  );
+  return result;
+}
+
+// ── Compute the outline path of a group of axis-aligned rects ─────────────────
+// Returns an array of display-space points tracing the outer polygon.
+// Uses a pixel-grid scan: rasterise which pixels are "inside" at low resolution,
+// then trace the border — robust for any arrangement of rects.
+function groupToPolygonPoints(rects, scaleX, scaleY) {
+  if (!rects.length) return [];
+
+  // Work in a low-res grid (each cell = one tile) aligned to the rects
+  // Find min cell size across all rects
+  const minW = Math.max(4, Math.min(...rects.map(r => r.pw)));
+  const minH = Math.max(4, Math.min(...rects.map(r => r.ph)));
+
+  // Global bbox of the group
+  const gx  = Math.min(...rects.map(r => r.px));
+  const gy  = Math.min(...rects.map(r => r.py));
+  const gx2 = Math.max(...rects.map(r => r.px + r.pw));
+  const gy2 = Math.max(...rects.map(r => r.py + r.ph));
+
+  // Build a list of display-space corner-aligned points that form the polygon.
+  // Approach: for each rect, contribute its 4 corners scaled to display space.
+  // Then compute the convex or rectilinear outline by tracing the union boundary.
+  //
+  // Simple robust approach: return the corners of each rect in display space,
+  // deduped, and produce the outline as the set of edges on the boundary
+  // (edges shared by exactly one rect) — rendered as a filled path.
+
+  // We'll return the path as a series of moveTo/lineTo segments.
+  // Each rect contributes 4 edges; edges shared by two rects are interior.
+  // We keep only exterior edges and link them into a closed polygon.
+
+  // Scale factor native → display
+  const edges = [];  // each: [{x,y},{x,y}]
+
+  for (const r of rects) {
+    const x1 = r.px * scaleX,         y1 = r.py * scaleY;
+    const x2 = (r.px + r.pw) * scaleX, y2 = (r.py + r.ph) * scaleY;
+    edges.push([{x:x1,y:y1},{x:x2,y:y1}]); // top
+    edges.push([{x:x2,y:y1},{x:x2,y:y2}]); // right
+    edges.push([{x:x2,y:y2},{x:x1,y:y2}]); // bottom
+    edges.push([{x:x1,y:y2},{x:x1,y:y1}]); // left
+  }
+
+  // Deduplicate: an edge shared by 2 rects appears twice (forward + backward).
+  // Keep only edges that appear exactly once.
+  function edgeKey(a, b) {
+    const pts = [[a.x,a.y],[b.x,b.y]].sort((p,q)=>p[0]!==q[0]?p[0]-q[0]:p[1]-q[1]);
+    return pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('|');
+  }
+  const count = new Map();
+  const edgeMap = new Map();
+  for (const [a,b] of edges) {
+    const k = edgeKey(a,b);
+    count.set(k, (count.get(k)||0)+1);
+    edgeMap.set(k, [a,b]);
+  }
+  const boundary = [];
+  for (const [k,cnt] of count) {
+    if (cnt === 1) boundary.push(edgeMap.get(k));
+  }
+  if (!boundary.length) return [];
+
+  // Link boundary edges into closed polygon(s) — robust walker
+  function ptKey(p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }
+
+  // Build half-edge adjacency (shared objects so .used is truly shared)
+  const halfEdges2 = [];
+  const adj2 = new Map();
+  for (const [a, b] of boundary) {
+    const fwd = { tx: b.x, ty: b.y, used: false };
+    const bwd = { tx: a.x, ty: a.y, used: false };
+    halfEdges2.push(fwd, bwd);
+    const ka = ptKey(a), kb = ptKey(b);
+    if (!adj2.has(ka)) adj2.set(ka, []);
+    if (!adj2.has(kb)) adj2.set(kb, []);
+    adj2.get(ka).push(fwd);
+    adj2.get(kb).push(bwd);
+  }
+
+  const polygons = [];
+  for (const he of halfEdges2) {
+    if (he.used) continue;
+    // Find start point
+    let startX = NaN, startY = NaN;
+    for (const [k, list] of adj2) {
+      if (list.includes(he)) {
+        [startX, startY] = k.split(',').map(Number);
+        break;
+      }
+    }
+    if (isNaN(startX)) continue;
+
+    he.used = true;
+    const poly = [{ x: startX, y: startY }];
+    let cx = he.tx, cy = he.ty;
+
+    for (let s = 0; s < boundary.length * 2 + 4; s++) {
+      if (Math.abs(cx - startX) < 0.5 && Math.abs(cy - startY) < 0.5) break;
+      poly.push({ x: cx, y: cy });
+      const nexts = adj2.get(ptKey({ x: cx, y: cy })) || [];
+      const next  = nexts.find(n => !n.used);
+      if (!next) break;
+      next.used = true;
+      cx = next.tx; cy = next.ty;
+    }
+
+    if (poly.length >= 3) polygons.push(poly);
+  }
+
+  return polygons.length ? polygons[0] : [];
+}
+
+
+// ── Helper: unrotate a point from bgCanvas native space → originalImage space ──
+function rotNativeToOrig(nx, ny) {
+  if (!originalImage || rotationDeg === 0) return { x: nx, y: ny };
+  const rad  = rotationDeg * Math.PI / 180;
+  const cos  = Math.cos(rad), sin = Math.sin(rad);
+  const rotW = bgCanvas.width, rotH = bgCanvas.height;
+  const nw   = originalImage.naturalWidth, nh = originalImage.naturalHeight;
+  const cx   = nx - rotW / 2, cy = ny - rotH / 2;
+  return {
+    x: cos * cx + sin * cy + nw / 2,
+    y: -sin * cx + cos * cy + nh / 2,
+  };
+}
+
+// ── Helper: get whole canvas as base64 JPEG ──────────────────────────────────
+function canvasToBase64(canvas) {
+  return new Promise(resolve => {
+    // Downscale if very large (AI vision has limits, also speeds things up)
+    const MAX = 1920;
+    if (canvas.width <= MAX && canvas.height <= MAX) {
+      resolve(canvas.toDataURL('image/jpeg', 0.88).split(',')[1]);
+      return;
+    }
+    const scale = Math.min(MAX / canvas.width, MAX / canvas.height);
+    const tmp   = document.createElement('canvas');
+    tmp.width   = Math.round(canvas.width  * scale);
+    tmp.height  = Math.round(canvas.height * scale);
+    tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+    resolve(tmp.toDataURL('image/jpeg', 0.88).split(',')[1]);
+  });
+}
+
+// ── Helper: crop a region from canvas at native resolution (no upscaling/blur) ─
+function cropCanvasToBase64(canvas, cx, cy, cw, ch) {
+  return new Promise(resolve => {
+    cx = Math.max(0, Math.floor(cx));
+    cy = Math.max(0, Math.floor(cy));
+    cw = Math.min(canvas.width  - cx, Math.ceil(cw));
+    ch = Math.min(canvas.height - cy, Math.ceil(ch));
+    if (cw < 2 || ch < 2) { resolve(''); return; }
+    const tmp = document.createElement('canvas');
+    tmp.width  = cw;
+    tmp.height = ch;
+    tmp.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+    resolve(tmp.toDataURL('image/jpeg', 0.95).split(',')[1]);
+  });
+}
+
+// ── Helper: show animated highlight over a scan region ───────────────────────
+async function showScanHighlight(sel, idx) {
+  const highlight = document.getElementById('scan-highlight');
+  const wrap      = document.getElementById('canvas-wrap');
+  const crop      = sel._autoRot;
+
+  // canvas-wrap has margin:20px inside canvas-area (position:relative)
+  // highlight is also inside canvas-area, absolute positioned
+  // wrap.offsetLeft/offsetTop give its position within canvas-area
+  const left   = wrap.offsetLeft + Math.round(crop.px * zoomScale);
+  const top    = wrap.offsetTop  + Math.round(crop.py * zoomScale);
+  const width  = Math.max(20, Math.round(crop.pw * zoomScale));
+  const height = Math.max(10, Math.round(crop.ph * zoomScale));
+
+  highlight.style.left    = left   + 'px';
+  highlight.style.top     = top    + 'px';
+  highlight.style.width   = width  + 'px';
+  highlight.style.height  = height + 'px';
+  highlight.style.margin  = '0';   // override CSS default margin when positioned
+  highlight.classList.add('visible');
+
+  // Scroll canvas area so region is visible
+  const area = document.getElementById('canvas-area');
+  const targetScrollX = left + width  / 2 - area.clientWidth  / 2;
+  const targetScrollY = top  + height / 2 - area.clientHeight / 2;
+  area.scrollTo({ left: Math.max(0, targetScrollX), top: Math.max(0, targetScrollY), behavior: 'smooth' });
+
+  // Flash animation on wrap
+  wrap.classList.remove('zoom-flash');
+  void wrap.offsetWidth; // reflow
+  wrap.classList.add('zoom-flash');
+
+  await sleep(380);
+}
+
+// ── Helper: call AI vision model, expect text response ───────────────────────
+async function callVisionJSON(prompt, base64Jpeg, provider, apiKey) {
+  if (provider === 'gpt') {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2048,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text',       text: prompt },
+            { type: 'image_url',  image_url: { url: `data:image/jpeg;base64,${base64Jpeg}`, detail: 'high' } }
+          ]
+        }]
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`GPT ${resp.status}: ${err}`);
+    }
+    const data = await resp.json();
+    let text = data.choices[0].message.content.trim();
+    // Strip markdown fences if model ignored instructions
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return text;
+
+  } else {
+    // Gemini 2.0 Flash
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: 'image/jpeg', data: base64Jpeg } }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0 }
+        })
+      }
+    );
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Gemini ${resp.status}: ${err}`);
+    }
+    const data = await resp.json();
+    let text = data.candidates[0].content.parts[0].text.trim();
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return text;
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Export: download image with bounding boxes drawn on it ───────────────────
+async function exportImageWithBoxes() {
+  if (!originalImage) { showToast('No image loaded.'); return; }
+  if (!selections.length) { showToast('No boxes to draw.'); return; }
+
+  // Draw on the native-resolution bgCanvas (already contains the (possibly rotated) image)
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width  = bgCanvas.width;
+  exportCanvas.height = bgCanvas.height;
+  const ctx = exportCanvas.getContext('2d');
+
+  // Copy the background image
+  ctx.drawImage(bgCanvas, 0, 0);
+
+  // Draw each selection box at native resolution (no zoomScale)
+  const nW = bgCanvas.width, nH = bgCanvas.height;
+  const scaleX = nW / (parseFloat(bgCanvas.style.width)  || nW);
+  const scaleY = nH / (parseFloat(bgCanvas.style.height) || nH);
+
+  selections.forEach((sel, i) => {
+    const corners = selCorners(sel);
+
+    // Scale from display coords → native canvas coords
+    const scaled = corners.map(c => ({ x: c.x * scaleX, y: c.y * scaleY }));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(scaled[0].x, scaled[0].y);
+    for (let k = 1; k < scaled.length; k++) ctx.lineTo(scaled[k].x, scaled[k].y);
+    ctx.closePath();
+    ctx.strokeStyle = '#e8c547';
+    ctx.lineWidth   = Math.max(2, Math.round(nW / 600));
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(232,197,71,0.12)';
+    ctx.fill();
+
+    // Label number
+    const minX = Math.min(...scaled.map(c => c.x));
+    const minY = Math.min(...scaled.map(c => c.y));
+    const fs = Math.max(14, Math.round(nW / 60));
+    ctx.font = `bold ${fs}px IBM Plex Mono, monospace`;
+    const pad = 4;
+    const lbl = String(i + 1);
+    const tw = ctx.measureText(lbl).width;
+    ctx.fillStyle = '#e8c547';
+    ctx.fillRect(minX, minY - fs - pad * 2, tw + pad * 2, fs + pad * 2);
+    ctx.fillStyle = '#0e0f11';
+    ctx.fillText(lbl, minX + pad, minY - pad - 1);
+    ctx.restore();
+  });
+
+  // Build suggested filename from original file name
+  const baseName = originalFile
+    ? originalFile.name.replace(/\.[^.]+$/, '')   // strip extension
+    : 'image';
+  const suggestedName = baseName + '_annotated.png';
+
+  // Try File System Access API (Chrome/Edge) — lets user pick folder
+  if (window.showSaveFilePicker) {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }],
+      });
+      const blob = await new Promise(resolve => exportCanvas.toBlob(resolve, 'image/png'));
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast('Image saved!');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user cancelled — don't fall through
+      // Other error: fall through to legacy download
+    }
+  }
+
+  // Fallback: regular anchor download (no folder picker)
+  const link = document.createElement('a');
+  link.download = suggestedName;
+  link.href = exportCanvas.toDataURL('image/png');
+  link.click();
+  showToast('Image with boxes downloaded.');
+}
+
+
+</script>
+</body>
+</html>

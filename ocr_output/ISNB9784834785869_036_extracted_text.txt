@@ -1,0 +1,65 @@
+[Box 1]
+[AI (API)] リボンブローチA（おもて）
+[AI (API)] レース（おもて）
+[AI (API)] リボンブローチA（うら）
+[AI (API)] ミシン
+[AI (API)] 2. リボンブローチAのおもて同士を合わせて、
+ミシンで縫う。
+[AI (API)] 3. おもてに返す。
+  [English] Ribbon Brooch A (Front)
+  [English] Race (front)
+  [English] Ribbon Brooch A (Back)
+  [English] Sewing machine
+  [English] 2. Align the right sides of Ribbon Brooch A together and sew with a sewing machine.
+  [English] 3. Turn it over.
+
+[Box 2]
+[AI (API)] リボンブローチA（おもて）
+[AI (API)] レース（うら）
+[AI (API)] 仮止めミシン
+[AI (API)] 1. リボンブローチAにレースを重ね、ミシンで縫って仮止めをする。
+  [English] Ribbon Brooch A (Front)
+  [English] Back of the lace
+  [English] Temporary baste sewing machine
+  [English] 1. Layer lace on Ribbon Brooch A, sew it with a sewing machine, and temporarily fasten it.
+
+[Box 3]
+[AI (API)] リボンブローチB（おもて）
+リボンブローチC
+（おもて）
+まつる
+[AI (API)] 8. 中心にリボンブローチCを巻き、まつる。
+  [English] Ribbon Brooch B (Front)
+Ribbon Brooch C (Front)
+Festival
+  [English] 8. Wrap and sew the ribbon brooch C in the center.
+
+[Box 4]
+[AI (API)] ブローチピン
+[AI (API)] リボンブローチB（おもて）
+[AI (API)] 裏側にブローチピンを縫いつける。
+  [English] Brooch pin
+  [English] Ribbon Brooch B (Front)
+  [English] Sew a brooch pin onto the back side.
+
+[Box 5]
+[AI (API)] 後ろ見返し
+(おもて)
+[AI (API)] 肩線
+[AI (API)] 見返しと身頃の肩線をまつって止める。
+  [English] Back view (front)
+  [English] Shoulder line
+  [English] Sew back the facing and the shoulder line of the body to secure them.
+
+[Box 6]
+[AI (API)] リボンブローチA
+(おもて)
+[AI (API)] 糸を巻き縫い止める
+[AI (API)] リボンブローチB
+(おもて)
+[AI (API)] 7. リボンブローチAとリボンブローチBをまとめ、中心にミシン糸を巻いて縫い止める。
+  [English] Ribbon Brooch A (Front)
+  [English] Wind the thread and secure it.
+  [English] Ribbon Brooch B  
+(Front)
+  [English] 7. Combine ribbon brooch A and ribbon brooch B, wrap sewing thread around the center, and sew them in place.

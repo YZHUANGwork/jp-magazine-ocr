@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR Example Output — jp-magazine-ocr</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0e0f11;
+  --surface:   #16181c;
+  --border:    #2a2d35;
+  --accent:    #e8c547;
+  --accent2:   #4fc3f7;
+  --text:      #e8e9eb;
+  --muted:     #6b7280;
+  --font-ui:   'Syne', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --bar:       36px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+/* ── top bar ── */
+.topbar {
+  height: var(--bar);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.topbar a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent2);
+  text-decoration: none;
+  border: 1px solid rgba(79,195,247,.35);
+  padding: 3px 10px;
+  border-radius: 4px;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.topbar a:hover { background: rgba(79,195,247,.1); }
+
+.topbar-links {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* ── viewer ── */
+.viewer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: calc(100vh - var(--bar));
+}
+
+/* ── image pane ── */
+.pane-image {
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 12px;
+}
+
+.pane-image img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: block;
+}
+
+/* ── text pane ── */
+.pane-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.text-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.text-scroll::-webkit-scrollbar { width: 5px; }
+.text-scroll::-webkit-scrollbar-track { background: transparent; }
+.text-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.text-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+.box-block {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.box-block:last-child { border-bottom: none; margin-bottom: 0; }
+
+.box-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.entry { margin-bottom: 10px; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.badge-ai { background: rgba(232,197,71,.15); color: var(--accent);  border: 1px solid rgba(232,197,71,.3); }
+.badge-zh { background: rgba(79,195,247,.12); color: var(--accent2); border: 1px solid rgba(79,195,247,.25); }
+
+.entry-text {
+  color: var(--text);
+  white-space: pre-wrap;
+  padding-left: 2px;
+}
+.entry-text.zh { color: #93c5fd; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="https://github.com/YZHUANGwork/jp-magazine-ocr">← Back to repo</a>
+  <div class="topbar-links">
+    <a href="https://github.com/YZHUANGwork/jp-magazine-ocr/blob/main/ocr_output/ISBN9784533116735_042_annotated.png" target="_blank">Annotated image ↗</a>
+    <a href="https://github.com/YZHUANGwork/jp-magazine-ocr/blob/main/ocr_output/ISBN9784533116735_042_extracted_text.txt" target="_blank">Extracted text ↗</a>
+  </div>
+</div>
+
+<div class="viewer">
+
+  <div class="pane-image">
+    <img
+      src="https://github.com/YZHUANGwork/jp-magazine-ocr/blob/main/ocr_output/ISBN9784533116735_042_annotated.png?raw=true"
+      alt="Annotated OCR output"
+    >
+  </div>
+
+  <div class="pane-text">
+    <div class="text-scroll">
+
+      <div class="box-block">
+        <div class="box-label">Box 1</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">品川
+新選組が仮住まいとした
+旅本専門の宿
+
+幕府御用宿 釜屋跡
+（ばくふごようやどかまやあと）
+鳥羽伏見の戦いに敗れ、大坂より
+撤退した新選組が屯所替わりに使
+用した旅本専門の宿。屋敷の様式か
+ら"本陣、と呼ばれた。現在は建物
+などは残っておらず説明板がある。</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">品川 新选组临时居住的 仅限旅行书的住宿
+
+幕府御用宿釜屋遗址
+在鸟羽伏见之战中败北，从大坂撤退的新选组曾以此作为驻扎之地的专门旅店。由于宅邸的样式，被称为"本阵"。目前建筑等已经不复存在，只有说明牌。</div>
+        </div>
+      </div>
+
+      <div class="box-block">
+        <div class="box-label">Box 2</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">甲州勝沼の戦いの舞台
+柏尾坂古戦場跡
+かしおざかこせんじょうあと
+
+慶応４年（1868）３月、近藤率いる新選組と新
+規募集兵による甲陽鎮撫隊が薩長連合軍と戦っ
+た古戦場。柵門や砲台を備えたが、三手に
+分かれ攻撃を加えられ敢えなく敗走した。
+
+500m　勝沼　ぶどう郷駅　←甲府駅へ</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">甲州胜沼之战的舞台 柏尾坂古战场遗址
+是在庆应四年（1868）三月，由近藤率领的新选组和新招募的甲阳镇抚队与萨长联军作战的古战场。虽然装备了栅门和炮台，但被分为三路进行攻击，最终不得不败退。
+
+500米　胜沼　葡萄乡站　← 往甲府站</div>
+        </div>
+      </div>
+
+      <div class="box-block">
+        <div class="box-label">Box 3</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">新政府軍に先んじて入られた城
+甲府城跡（舞鶴城公園）
+こうふじょうあと（まいづるじょうこうえん）
+
+武田氏滅亡後、豊臣秀吉の命により築城された。
+徳川体制になってからは、西日本への備えとして
+重要な城だった。現在は城跡の一部が舞鶴城公園
+と甲府市歴史公園として市民に開放されている。
+
+明治に入り、徳川時代の面影は失われたが、
+一部は復元されている</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">在新政府军之前被攻占的城堡
+甲府城遗址（舞鹤城公园）
+
+武田氏灭亡后，根据丰臣秀吉的命令建造。在德川体制确立后，作为防备西日本的重要城堡。现在，其遗址的一部分作为舞鹤城公园和甲府市历史公园向市民开放。
+
+进入明治时代后，德川时代的痕迹消失了，但部分已被复原。</div>
+        </div>
+      </div>
+
+      <div class="box-block">
+        <div class="box-label">Box 4</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">甲陽鎮撫隊の進軍と最大の誤算
+
+江戸に戻った新選組は、蘭方医の松本良順とともに、
+旗本専用の宿"釜屋"に身を寄せて、暫伏の時を過ごしていた。</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">甲阳镇抚队的进军与最大的误算
+
+返回江户的新选组与荷兰医学家松本良顺一起，借住在旗本专用的宿"釜屋"，度过暂时隐忍的时光。</div>
+        </div>
+      </div>
+
+      <div class="box-block">
+        <div class="box-label">Box 5</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">その後、近藤が復帰し、勝安房守（勝海舟）より甲府城奪取
+防衛の命を受け、隊名を"甲陽鎮撫隊"と改める。甲州に進軍
+する"同であったが、"故郷に錦を飾りたい"と近藤は、隊土たちと
+別行動を取り、八王子で足を止める。そのため隊の移動が遅れ、
+甲府城は薩長軍の手に渡ってしまった。相手は洋式化した近代
+兵器を扱う部隊であるため、一方的な攻撃を受けた甲陽鎮撫隊
+は敗北。近藤は失意のどん底を味わうのだった。</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">此后，近藤复出，受命于胜安房守（胜海舟），夺取和防卫甲府城，并将队名改为"甲阳镇抚队"。虽然同心协力进军甲州，近藤因想"衣锦还乡"而与队员分开行动，在八王子驻足。因此，导致队伍行动迟缓，甲府城被萨长军占领。由于对方是掌握西式现代兵器的部队，甲阳镇抚队遭到单方面攻击而失败。近藤因此尝到了失意的滋味。</div>
+        </div>
+      </div>
+
+      <div class="box-block">
+        <div class="box-label">Box 6</div>
+        <div class="entry">
+          <div class="badge badge-ai">AI</div>
+          <div class="entry-text">武士が誓いを立てる時はこうするもんなんだと
+……金打を打つ、といってな、</div>
+        </div>
+        <div class="entry">
+          <div class="badge badge-zh">中文</div>
+          <div class="entry-text zh">武士在立誓时都是这样做的……这叫做敲金。</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

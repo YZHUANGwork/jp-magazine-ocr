@@ -11,7 +11,7 @@ Designed for Japanese magazines, manga, and illustrated spreads where text and p
 
 ## Example Output
 
-Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output).
+Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output). Source files are in [`ocr_input/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_input). 
 
 | Category | Example |
 |----------|-------------|

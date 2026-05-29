@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-server.py  —  Web UI for Japanese text extraction
+server_aionly.py  —  Web UI for Japanese text extraction
 --------------------------------------------------
 Serves the single-page UI and exposes one endpoint:
 
@@ -16,7 +16,7 @@ Serves the single-page UI and exposes one endpoint:
       { "error": "message" }
 
 Run:
-  python server.py
+  python server_aionly.py
   # open http://localhost:5000
 """
 
@@ -136,7 +136,7 @@ def format_text(regions: list) -> str:
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return send_from_directory("static", "index_aionly.html")
 
 
 @app.route("/extract", methods=["POST"])

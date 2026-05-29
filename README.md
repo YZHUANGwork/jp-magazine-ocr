@@ -8,6 +8,22 @@ Designed for Japanese magazines, manga, and illustrated spreads where text and p
 
 ---
 
+
+## Example Output
+
+Travel magazine JP+中文
+Fan book: example_viewer.html?base=ISNB475772439X_047
+
+Music magazine interview
+
+Manga: 
+
+Photobook interview
+
+Bandscore interview
+
+Sewing magazine
+---
 ## Two Versions
 
 This repo contains two independent versions of the tool. Pick the one that fits your use case.

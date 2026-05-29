@@ -14,12 +14,11 @@ Designed for Japanese magazines, manga, and illustrated spreads where text and p
 Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output).
 
 | Category | Example |
-|----------|---------|
-| Travel magazine | [hakuouki](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042,https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_097)|
+|----------|-------------|
+|  Functional book | [Sewing magazine otome sewing 19 ](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB9784834785869_036), [Travel magazine hakuouki 1](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042),[Travel magazine hakuouki 2](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_097)|
 | Fan book, art illustration | [togainu no chi](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB475772439X_047),  [darker than black: Gemini of the Meteor](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784056059601_036), [GINTAMA](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784088820378_166)|
 | Manga | [vampire knights memories 11](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784592222255_154) |
-| scanned interview| [ryo matsuda zero Photobook](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784847046964), [massive vol40 dir en grey kaoru](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045),  [penicillin vibe band score](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN4401350332)  |
-|  functional book | [Sewing magazine otome sewing 19 ](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB9784834785869_036) |
+| Scanned interview | [ryo matsuda zero Photobook](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784847046964), [massive vol40 dir en grey kaoru](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045),  [penicillin vibe band score](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN4401350332)  |
 
 
 ---

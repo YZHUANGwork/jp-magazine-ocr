@@ -18,8 +18,8 @@ Each viewer shows the annotated image on the left and the scrollable extracted t
 | Travel magazine JP+中文 | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042) |
 | Fan book | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB475772439X_047) |
 | Music magazine interview | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045) |
-| Manga | *(coming soon)* |
-| Photobook interview | *(coming soon)* |
+| Manga | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784592222255_154) |
+| Photobook interview | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784847046964) |
 | Band score interview | *(coming soon)* |
 | Sewing magazine | *(coming soon)* |
 

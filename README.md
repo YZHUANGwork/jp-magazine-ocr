@@ -8,20 +8,27 @@ Designed for Japanese magazines, manga, and illustrated spreads where text and p
 
 ---
 
-
 ## Example Output
 
-Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output). Source files are in [`ocr_input/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_input). 
+Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output). Source files are in [`ocr_input/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_input).
 
 | Category | Example |
-|----------|-------------|
-|  Functional book | [Sewing magazine otome sewing 19 ](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB9784834785869_036), [Travel magazine hakuouki 1](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042),[Travel magazine hakuouki 2](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_097)|
-| Fan book, art illustration | [togainu no chi](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB475772439X_047),  [darker than black: Gemini of the Meteor](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784056059601_036), [GINTAMA](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784088820378_166)|
+|----------|---------|
+| Functional book | [Sewing magazine otome sewing 19](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB9784834785869_036), [Travel magazine hakuouki 1](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042), [Travel magazine hakuouki 2](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_097) |
+| Fan book, art illustration | [togainu no chi](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB475772439X_047), [darker than black: Gemini of the Meteor](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784056059601_036), [GINTAMA](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784088820378_166) |
 | Manga | [vampire knights memories 11](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784592222255_154) |
-| Scanned interview | [ryo matsuda zero Photobook](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784847046964), [massive vol40 dir en grey kaoru](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045),  [penicillin vibe band score](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN4401350332)  |
-
+| Scanned interview | [ryo matsuda zero Photobook](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784847046964), [massive vol40 dir en grey kaoru](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045), [penicillin vibe band score](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN4401350332) |
 
 ---
+
+## Why Drag Boxes Instead of Scanning the Whole Page
+The Problem: Layout Chaos
+When pages are packed with dense content—like magazines, or illustrated books—scanning the whole image with AI fails. Varied font sizes and complex layouts confuse the AI, leading to nonsense content.
+
+Dragging a box isolates exactly the region you want. The AI gets a clean, focused crop with far less noise to confuse it, which means accurate text and correct reading order. This is the core workflow the tool is built around.
+
+---
+
 ## Two Versions
 
 This repo contains two independent versions of the tool. Pick the one that fits your use case.
@@ -72,9 +79,8 @@ python3 server_fullstack.py
 - **Inline translation** — add Chinese (中文), English, or both translations alongside extracted text in one click
 - **Image rotation** — rotate ±180° with a slider, useful for sideways or upside-down pages
 - **Scroll to zoom** — pinch or scroll to zoom in/out for dense, small-print areas
-- **Undo** — Ctrl+Z removes the most recently drawn box (before running OCR)
+- **Undo** — Ctrl+Z removes the most recently drawn box
 - **Click to highlight** — clicking a result block bold-frames its canvas box
-- **Copy all** — copies all extracted text and translations to clipboard
 - **No data stored** — your API key and images never leave your browser except for the direct API call to OpenAI/Google
 
 ### Full-stack version only
@@ -134,6 +140,7 @@ You can run both engines on the same set of boxes and see both sets of results i
 ### Requirements
 
 - Python 3.9+
+- Tested on Ubuntu 24.04
 - An OpenAI API key **or** a Google Gemini API key
 
 For the full-stack version, local models are optional but unlock free offline OCR:
@@ -160,7 +167,7 @@ python3 server_fullstack.py
 
 Then open <http://localhost:5000> in your browser. Port can be changed:
 ```
-PORT=8080 python server_fullstack.py
+PORT=8080 python3 server_fullstack.py
 ```
 
 ---
@@ -172,7 +179,7 @@ PORT=8080 python server_fullstack.py
 1. **Upload an image** — click the drop zone or drag a JPG/PNG/WEBP file onto it
 2. **Draw selection boxes** — click and drag on the image to mark text regions
    - Leave the canvas empty to scan the whole image instead
-   - Ctrl+Z undoes the last drawn box (before running OCR)
+   - Ctrl+Z undoes the last drawn box
    - Use the rotation slider if the page is tilted or sideways
 3. **Choose a provider** — select GPT-4o or Gemini 2.0 Flash, then paste your API key
 4. **Run extraction:**
@@ -187,7 +194,7 @@ PORT=8080 python server_fullstack.py
 1. **Upload an image** — click the drop zone or drag a JPG/PNG/WEBP file onto it
 2. **(Optional) Compare detection methods** — click **Identify Text Region** (▾ to switch method) to auto-draw boxes; run different methods to compare where each one places boxes. Close or redraw any that landed in the wrong place. Or skip this step entirely and draw all boxes manually for best accuracy.
 3. **Draw selection boxes** — click and drag to add or refine boxes
-   - Ctrl+Z undoes the last drawn box (before running OCR)
+   - Ctrl+Z undoes the last drawn box
    - Use the rotation slider if the page is tilted or sideways
 4. **Choose a provider** — select GPT-4o or Gemini 2.0 Flash, then paste your API key
 5. **Run extraction** (▾ on Identify JP to switch engine):

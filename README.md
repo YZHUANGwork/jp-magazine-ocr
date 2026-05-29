@@ -11,18 +11,19 @@ Designed for Japanese magazines, manga, and illustrated spreads where text and p
 
 ## Example Output
 
-Travel magazine JP+中文
-Fan book: example_viewer.html?base=ISNB475772439X_047
+Each viewer shows the annotated image on the left and the scrollable extracted text on the right. Raw files are in [`ocr_output/`](https://github.com/YZHUANGwork/jp-magazine-ocr/tree/main/ocr_output).
 
-Music magazine interview
+| Category | Example |
+|----------|---------|
+| Travel magazine JP+中文 | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784533116735_042) |
+| Fan book | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISNB475772439X_047) |
+| Music magazine interview | [→ viewer](https://yzhuangwork.github.io/jp-magazine-ocr/example_viewer.html?base=ISBN9784401651559_045) |
+| Manga | *(coming soon)* |
+| Photobook interview | *(coming soon)* |
+| Band score interview | *(coming soon)* |
+| Sewing magazine | *(coming soon)* |
 
-Manga: 
 
-Photobook interview
-
-Bandscore interview
-
-Sewing magazine
 ---
 ## Two Versions
 

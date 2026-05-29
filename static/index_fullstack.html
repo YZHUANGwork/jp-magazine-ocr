@@ -933,6 +933,9 @@ canvasArea.addEventListener('wheel', e => {
 // ── Ctrl+Z — only undoes boxes added since the last "Identify JP" ────────────
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    // Let the browser handle undo natively when the user is typing in any input
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     e.preventDefault();
     if (!originalImage || undoableCount === 0) return;
     // The box to remove is always the last one (new boxes are appended)
@@ -2395,8 +2398,8 @@ async function runDetect() {
 
     // Draw boxes only — same style as manual drag
     selections = [];
-    undoableCount = 0;
     for (const r of leafRects) selections.push(rectToSelection(r.px, r.py, r.pw, r.ph));
+    undoableCount = selections.length;  // all detected boxes are undoable
 
     gridOverlay.style.display = 'none';
     redrawAll();
